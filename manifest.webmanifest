@@ -1,0 +1,10 @@
+{
+  "name": "Kasir Mini",
+  "short_name": "KasirMini",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111827",
+  "description": "Kasir sederhana: item custom, keranjang, pembayaran, riwayat, cetak struk."
+}
+

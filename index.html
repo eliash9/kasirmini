@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kasir Mini</title>
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="theme-color" content="#4f46e5" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs/%3E%3Crect width='64' height='64' rx='12' fill='%234f46e5'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Inter,system-ui,Segoe UI,Roboto' font-size='28' fill='white'%3EK%3C/text%3E%3C/svg%3E" type="image/svg+xml" />
+    <style>
+      /* Receipt 58mm print styles */
+      @media print {
+        @page { size: 58mm auto; margin: 0; }
+        body { margin: 0; background: #fff; }
+        /* Print only the receipt */
+        body * { visibility: hidden; }
+        #receipt, #receipt * { visibility: visible; }
+        #receipt { width: 58mm !important; border: none !important; box-shadow: none !important; position: absolute; left: 0; top: 0; }
+        #receipt * { font-size: 11px; line-height: 1.35; }
+        #receipt .title { font-size: 14px; font-weight: 700; }
+      }
+      /* Screen preview of 58mm receipt */
+      #receipt { width: 58mm; background: #fff; }
+    </style>
+  </head>
+  <body class="min-h-screen bg-gradient-to-b from-indigo-300 via-white to-fuchsia-300 text-gray-900">
+    <div id="app">
+      <!-- Header with tabs -->
+      <header class="no-print sticky top-0 z-10 bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white shadow">
+        <div class="mx-auto max-w-3xl px-4 py-3">
+          <div class="flex items-center justify-between">
+            <h1 class="font-semibold tracking-wide">{{ storeName }}</h1>
+            <div class="text-xs opacity-90">PWA • Offline • Vue 3</div>
+          </div>
+          <div class="mt-3 flex gap-2 items-center">
+            <button @click="activeTab='pos'" :class="activeTab==='pos' ? 'bg-white/90 text-gray-900' : 'bg-white/10 text-white hover:bg-white/20'" class="px-3 py-1 rounded flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l3-8H6.4M7 13l-1.293 2.293A1 1 0 007.618 17H19m-12 0a1 1 0 100 2 1 1 0 000-2zm12 0a1 1 0 110 2 1 1 0 010-2z"/></svg>
+              <span class="hidden sm:inline">Kasir</span>
+            </button>
+            <button @click="activeTab='history'" :class="activeTab==='history' ? 'bg-white/90 text-gray-900' : 'bg-white/10 text-white hover:bg-white/20'" class="px-3 py-1 rounded flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span class="hidden sm:inline">Riwayat</span>
+            </button>
+            <button @click="showSettings=true" class="ml-auto px-3 py-1 rounded bg-white/10 text-white hover:bg-white/20 flex items-center gap-2" aria-label="Pengaturan">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M11.983 1.574a1 1 0 00-1.966 0l-.117.586a1 1 0 01-.95.788l-.598.03a1 1 0 00-.905.62l-.232.561a1 1 0 01-.81.6l-.596.074a1 1 0 00-.827.727l-.157.587a1 1 0 01-.666.69l-.57.19a1 1 0 00-.62.905l.03.598a1 1 0 01-.788.95l-.586.117a1 1 0 000 1.966l.586.117a1 1 0 01.788.95l-.03.598a1 1 0 00.62.905l.57.19a1 1 0 01.666.69l.157.587a1 1 0 00.827.727l.596.074a1 1 0 01.81.6l.232.561a1 1 0 00.905.62l.598.03a1 1 0 01.95.788l.117.586a1 1 0 001.966 0l.117-.586a1 1 0 01.95-.788l.598-.03a1 1 0 00.905-.62l.232-.561a1 1 0 01.81-.6l.596-.074a1 1 0 00.827-.727l.157-.587a1 1 0 01.666-.69l.57-.19a1 1 0 00.62-.905l-.03-.598a1 1 0 01.788-.95l.586-.117a1 1 0 000-1.966l-.586-.117a1 1 0 01-.788-.95l.03-.598a1 1 0 00-.62-.905l-.57-.19a1 1 0 01-.666-.69l-.157-.587a1 1 0 00-.827-.727l-.596-.074a1 1 0 01-.81-.6l-.232-.561a1 1 0 00-.905-.62l-.598-.03a1 1 0 01-.95-.788l-.117-.586zM10 13a3 3 0 110-6 3 3 0 010 6z"/></svg>
+              <span class="hidden sm:inline">Pengaturan</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main -->
+      <main class="mx-auto max-w-3xl p-4">
+        <!-- POS View -->
+        <div v-if="activeTab==='pos'" class="space-y-4">
+          <!-- Add Item -->
+          <section class="bg-white rounded-2xl shadow p-4">
+            <h2 class="font-semibold mb-3">Tambah Item</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-6 gap-2">
+              <input v-model="newItem.name" type="text" placeholder="Nama item" class="sm:col-span-3 border rounded-lg px-3 py-2" />
+              <input v-model.number="newItem.price" type="number" min="0" step="100" placeholder="Harga (Rp)" class="sm:col-span-2 border rounded-lg px-3 py-2" />
+              <button @click="addItem" class="sm:col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-3 py-2 flex items-center justify-center" aria-label="Tambah item">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/></svg>
+              </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Masukkan nama dan harga (Rupiah), lalu klik tambah untuk memasukkan ke keranjang.</p>
+          </section>
+
+          <!-- Cart -->
+          <section class="bg-white rounded-2xl shadow p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="font-semibold">Keranjang</h2>
+              <button @click="clearCart" class="p-2 rounded hover:bg-red-50 disabled:opacity-50" :disabled="cart.length===0" aria-label="Kosongkan keranjang">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 100 2h.293l.853 10.24A2 2 0 007.14 18h5.72a2 2 0 001.994-1.76L15.707 6H16a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0010 2H9zm-1 6a1 1 0 012 0v7a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v7a1 1 0 11-2 0V8z" clip-rule="evenodd"/></svg>
+              </button>
+            </div>
+
+            <div v-if="cart.length===0" class="text-sm text-gray-500">Belum ada item.</div>
+            <div v-else class="divide-y">
+              <div v-for="(it, idx) in cart" :key="idx" class="py-2 flex items-start gap-3">
+                <div class="flex-1">
+                  <div class="font-medium">{{ it.name }}</div>
+                  <div class="text-xs text-gray-500">{{ formatIDR(it.price) }} × {{ it.qty }}</div>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button class="p-2 rounded border hover:bg-gray-50" @click="decQty(idx)" aria-label="Kurangi">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z"/></svg>
+                  </button>
+                  <input type="number" min="1" v-model.number="it.qty" class="w-14 text-center border rounded px-2 py-1" />
+                  <button class="p-2 rounded border hover:bg-gray-50" @click="incQty(idx)" aria-label="Tambah">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/></svg>
+                  </button>
+                </div>
+                <div class="w-28 text-right tabular-nums">{{ formatIDR(it.price * it.qty) }}</div>
+                <button @click="removeItem(idx)" class="p-2 rounded hover:bg-red-50" aria-label="Hapus item">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.536-10.95a1 1 0 00-1.414-1.414L10 7.586 7.879 5.465A1 1 0 106.465 6.88L8.586 9l-2.121 2.121a1 1 0 101.414 1.415L10 10.414l2.121 2.122a1 1 0 001.415-1.415L11.414 9l2.122-2.121z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Totals -->
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div class="p-3 bg-indigo-50 rounded">
+                <div class="text-xs text-indigo-700">Subtotal</div>
+                <div class="font-semibold tabular-nums">{{ formatIDR(subtotal) }}</div>
+              </div>
+              <div class="p-3 bg-rose-50 rounded">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-xs text-rose-700">Diskon (%)</div>
+                    <input type="number" min="0" max="100" step="1" v-model.number="discountPct" class="mt-1 w-24 border rounded px-2 py-1" />
+                  </div>
+                  <div class="text-right">
+                    <div class="text-xs text-rose-700">Nilai</div>
+                    <div class="font-semibold tabular-nums">-{{ formatIDR(discountAmount) }}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="p-3 bg-amber-50 rounded">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-xs text-amber-700">Pajak (%)</div>
+                    <input type="number" min="0" max="100" step="1" v-model.number="taxPct" class="mt-1 w-24 border rounded px-2 py-1" />
+                  </div>
+                  <div class="text-right">
+                    <div class="text-xs text-amber-700">Nilai</div>
+                    <div class="font-semibold tabular-nums">{{ formatIDR(taxAmount) }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 flex items-center justify-between">
+              <div class="text-lg font-semibold">Total: <span class="tabular-nums">{{ formatIDR(total) }}</span></div>
+              <div class="flex gap-2">
+                
+                <button class="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 disabled:opacity-50" @click="openPayment" :disabled="cart.length===0">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2V8h-4a2 2 0 01-2-2V2H4zm8-2v4h4l-4-4z"/></svg>
+                  <span class="hidden sm:inline">Bayar</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- History View -->
+        <div v-if="activeTab==='history'" class="space-y-4">
+          <section class="bg-white rounded-2xl shadow p-4">
+            <h2 class="font-semibold mb-3">Riwayat Transaksi</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-3">
+              <div class="sm:col-span-2">
+                <label class="text-xs text-gray-500">Tanggal awal</label>
+                <input type="date" v-model="filterStart" class="w-full border rounded px-2 py-1" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="text-xs text-gray-500">Tanggal akhir</label>
+                <input type="date" v-model="filterEnd" class="w-full border rounded px-2 py-1" />
+              </div>
+            </div>
+            <div class="divide-y">
+              <div v-for="tx in filteredHistory" :key="tx.id" class="py-2 flex items-center justify-between">
+                <div>
+                  <div class="text-sm">{{ formatDateTime(tx.date) }}</div>
+                  <div class="text-xs text-gray-500">{{ tx.items.length }} item</div>
+                </div>
+                <div class="text-right">
+                  <div class="font-medium tabular-nums">{{ formatIDR(tx.total) }}</div>
+                  <div class="flex gap-2 justify-end">
+                    <button class="px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs" @click="loadReceipt(tx); showReceiptModal=true; activeTab='pos'">Lihat Struk</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- PaymentModal -->
+        <div v-if="showPayment" class="no-print fixed inset-0 z-30 flex items-center justify-center bg-black/50 p-4">
+          <div class="bg-white rounded-xl shadow p-4 w-full max-w-sm">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold">Pembayaran</h3>
+              <button @click="showPayment=false" class="p-2 rounded hover:bg-gray-100" aria-label="Tutup">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.536-10.95a1 1 0 00-1.414-1.414L10 7.586 7.879 5.465A1 1 0 106.465 6.88L8.586 9l-2.121 2.121a1 1 0 101.414 1.415L10 10.414l2.121 2.122a1 1 0 001.415-1.415L11.414 9l2.122-2.121z" clip-rule="evenodd"/></svg>
+              </button>
+            </div>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <div>Total</div>
+                <div class="font-semibold tabular-nums">{{ formatIDR(total) }}</div>
+              </div>
+
+              <!-- Payment method selector -->
+              <div>
+                <div class="text-sm text-gray-500 mb-1">Metode Pembayaran</div>
+                <div class="grid grid-cols-3 gap-2">
+                  <button @click="paymentMethod='cash'" :class="paymentMethod==='cash' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded">Tunai</button>
+                  <button @click="paymentMethod='qris'" :class="paymentMethod==='qris' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded">QRIS</button>
+                  <button @click="paymentMethod='other'" :class="paymentMethod==='other' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded">Lainnya</button>
+                </div>
+              </div>
+
+              <!-- Cash input + quick denominations -->
+              <div v-if="paymentMethod==='cash'" class="space-y-2">
+                <div>
+                  <label class="text-sm text-gray-500">Tunai (Rp)</label>
+                  <input type="number" min="0" step="100" v-model.number="cash" class="w-full border rounded px-3 py-2" />
+                </div>
+                <div class="grid grid-cols-4 gap-2">
+                  <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="addCash(100000)">100K</button>
+                  <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="addCash(50000)">50K</button>
+                  <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="addCash(20000)">20K</button>
+                  <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="addCash(10000)">10K</button>
+                  <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="addCash(5000)">5K</button>
+                  <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="addCash(2000)">2K</button>
+                  <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="addCash(1000)">1K</button>
+                  <button class="px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100" @click="cash = total">Pas</button>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div>Kembali</div>
+                  <div class="font-semibold tabular-nums">{{ formatIDR(change) }}</div>
+                </div>
+              </div>
+
+              <!-- QRIS dynamic payload + QR image -->
+              <div v-if="paymentMethod==='qris'" class="space-y-2">
+                <div class="text-sm text-gray-500">QRIS</div>
+                
+                <div id="qris-box" class="rounded-lg border-2 border-dashed border-gray-300 p-4 flex flex-col items-center justify-center text-center">
+                  <canvas id="qris-canvas" width="200" height="200" class="block"></canvas>
+                  <img id="qris-img" class="hidden w-[200px] h-[200px]" alt="QRIS" />
+                  <div class="mt-2 text-sm text-gray-600">Scan untuk bayar</div>
+                  <div class="text-sm font-semibold">Nominal: {{ formatIDR(total) }}</div>
+                </div>
+                
+              </div>
+
+              <!-- Other notes -->
+              <div v-if="paymentMethod==='other'" class="space-y-2">
+                <label class="text-sm text-gray-500" for="other-note">Catatan (opsional)</label>
+                <textarea id="other-note" v-model="otherNote" rows="2" class="w-full border rounded px-3 py-2" placeholder="Misal: debit BCA, transfer, dsb."></textarea>
+              </div>
+
+              <button class="w-full mt-2 px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+                :disabled="total===0 || (paymentMethod==='cash' && cash < total)"
+                @click="confirmPayment">Konfirmasi Bayar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Receipt Modal (full-screen) -->
+        <div v-if="showReceiptModal" class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
+          <div class="bg-white rounded-xl shadow p-4 w-full max-w-sm">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold">Struk</h3>
+              <div class="flex items-center gap-2">
+                <button class="p-2 rounded bg-green-600 hover:bg-green-700 text-white disabled:opacity-50" @click="shareReceiptWA" :disabled="!hasPrintableReceipt" aria-label="Bagikan WhatsApp">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M20 12c0 4.418-3.582 8-8 8a7.95 7.95 0 01-4.03-1.086L4 20l1.086-3.97A7.95 7.95 0 014 12c0-4.418 3.582-8 8-8s8 3.582 8 8zm-8-6.5a6.5 6.5 0 00-5.657 9.743l.245.437-.64 2.342 2.377-.623.423.25A6.5 6.5 0 1012 5.5zm3.29 8.7c-.18-.09-1.06-.52-1.22-.58-.16-.06-.28-.09-.4.09-.12.18-.46.58-.56.7-.1.12-.2.14-.38.05-.18-.09-.76-.28-1.45-.9-.54-.48-.9-1.08-1-1.26-.1-.18-.01-.28.08-.37.08-.08.18-.2.27-.3.09-.1.12-.18.18-.3.06-.12.03-.22-.01-.31-.04-.09-.4-.96-.55-1.32-.15-.36-.29-.31-.4-.31-.1 0-.22-.02-.34-.02-.12 0-.31.04-.47.22-.16.18-.62.6-.62 1.46 0 .86.64 1.69.72 1.81.09.12 1.26 1.92 3.06 2.69.43.18.76.28 1.02.36.43.14.83.12 1.14.07.35-.05 1.06-.43 1.21-.85.15-.42.15-.78.11-.85-.04-.07-.16-.11-.34-.2z"/></svg>
+                </button>
+                <button class="p-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white" @click="printReceipt" :disabled="!hasPrintableReceipt" aria-label="Cetak">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a2 2 0 00-2 2v3h12V4a2 2 0 00-2-2H6z"/><path fill-rule="evenodd" d="M4 9a2 2 0 00-2 2v3a2 2 0 002 2h1v-2a2 2 0 012-2h6a2 2 0 012 2v2h1a2 2 0 002-2v-3a2 2 0 00-2-2H4zm4 7h4v-2H8v2z" clip-rule="evenodd"/></svg>
+                </button>
+                <button class="p-2 rounded hover:bg-gray-100" @click="showReceiptModal=false" aria-label="Tutup">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.536-10.95a1 1 0 00-1.414-1.414L10 7.586 7.879 5.465A1 1 0 106.465 6.88L8.586 9l-2.121 2.121a1 1 0 101.414 1.415L10 10.414l2.121 2.122a1 1 0 001.415-1.415L11.414 9l2.122-2.121z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="mt-3 flex justify-center">
+              <div id="receipt" class="printable border rounded p-3 shadow-sm">
+                <div class="text-center title">{{ storeName }}</div>
+                <div class="text-center text-xs">{{ storeAddress }}</div>
+                <div class="text-center text-xs">Telp: {{ storePhone }}</div>
+                <div class="my-2 border-t border-dashed"></div>
+
+                <div class="text-xs">Waktu: {{ formatDateTime(currentReceipt.date) }}</div>
+                <div class="text-xs">ID: {{ currentReceipt.id || '-' }}</div>
+                <div class="my-2 border-t border-dashed"></div>
+
+                <div>
+                  <div v-for="(it, i) in currentReceipt.items" :key="i" class="text-xs">
+                    <div class="flex justify-between">
+                      <div class="pr-2">{{ it.name }} × {{ it.qty }}</div>
+                      <div class="tabular-nums">{{ formatIDR(it.price * it.qty) }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="my-2 border-t border-dashed"></div>
+                <div class="text-xs flex justify-between"><span>Subtotal</span><span class="tabular-nums">{{ formatIDR(currentReceipt.subtotal || 0) }}</span></div>
+                <div class="text-xs flex justify-between"><span>Diskon {{ (currentReceipt.discountPct||0) }}%</span><span class="tabular-nums">-{{ formatIDR(currentReceipt.discountAmount || 0) }}</span></div>
+                <div class="text-xs flex justify-between"><span>Pajak {{ (currentReceipt.taxPct||0) }}%</span><span class="tabular-nums">{{ formatIDR(currentReceipt.taxAmount || 0) }}</span></div>
+                <div class="text-xs flex justify-between font-semibold"><span>Total</span><span class="tabular-nums">{{ formatIDR(currentReceipt.total || 0) }}</span></div>
+                <div class="text-xs flex justify-between"><span>Metode</span><span>{{ paymentLabel(currentReceipt.paymentMethod) }}</span></div>
+                <div v-if="currentReceipt.paymentNote" class="text-xs flex justify-between"><span>Catatan</span><span>{{ currentReceipt.paymentNote }}</span></div>
+                <div class="text-xs flex justify-between"><span>Bayar</span><span class="tabular-nums">{{ formatIDR(currentReceipt.paid || 0) }}</span></div>
+                <div class="text-xs flex justify-between"><span>Kembali</span><span class="tabular-nums">{{ formatIDR(currentReceipt.change || 0) }}</span></div>
+
+                <div class="my-2 border-t border-dashed"></div>
+                <div class="text-center text-xs">Terima kasih</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      
+      <!-- Settings Modal -->
+      <div v-if="showSettings" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="bg-white rounded-xl shadow p-4 w-full max-w-md">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-semibold">Pengaturan Toko</h3>
+            <button @click="showSettings=false" class="p-2 rounded hover:bg-gray-100" aria-label="Tutup">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.536-10.95a1 1 0 00-1.414-1.414L10 7.586 7.879 5.465A1 1 0 106.465 6.88L8.586 9l-2.121 2.121a1 1 0 101.414 1.415L10 10.414l2.121 2.122a1 1 0 001.415-1.415L11.414 9l2.122-2.121z" clip-rule="evenodd"/></svg>
+            </button>
+          </div>
+          <div class="space-y-3">
+            <div>
+              <label class="text-sm text-gray-600">Judul/ Nama Toko</label>
+              <input v-model="storeName" class="w-full border rounded px-3 py-2" placeholder="Kasir Mini" />
+            </div>
+            <div>
+              <label class="text-sm text-gray-600">Alamat</label>
+              <textarea v-model="storeAddress" rows="2" class="w-full border rounded px-3 py-2" placeholder="Alamat"></textarea>
+            </div>
+            <div>
+              <label class="text-sm text-gray-600">Telepon</label>
+              <input v-model="storePhone" class="w-full border rounded px-3 py-2" placeholder="0800-000-000" />
+            </div>
+            <div>
+              <label class="text-sm text-gray-600">QRIS Payload Dasar</label>
+              <textarea v-model="qrisBase" rows="3" class="w-full border rounded px-3 py-2" placeholder="000201..."></textarea>
+              <p class="text-xs text-gray-500 mt-1">Nominal dan CRC akan dihitung otomatis saat pembayaran.</p>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+              <button @click="showSettings=false" class="px-3 py-2 rounded border">Batal</button>
+              <button @click="saveSettings(); showSettings=false" class="px-3 py-2 rounded bg-indigo-600 text-white">Simpan</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dexie CDN (global Dexie) -->
+    <script src="https://unpkg.com/dexie@3.2.5/dist/dexie.min.js"></script>
+    <!-- QR code generator (browser UMD) -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <!-- html2canvas for screenshotting receipt (optional) -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <!-- Vue 3 ESM -->
+    <script type="module">
+      import { createApp, ref, reactive, computed, onMounted, nextTick, watch } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js';
+
+      // Currency util for IDR
+      const idr = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
+
+      // IndexedDB via Dexie
+      const db = new window.Dexie('kasirmini');
+      db.version(1).stores({ transactions: '++id, date' });
+
+      const app = createApp({
+        setup() {
+          const newItem = reactive({ name: '', price: null });
+          const cart = ref([]);
+          const discountPct = ref(0);
+          const taxPct = ref(0);
+
+          const subtotal = computed(() => cart.value.reduce((s, it) => s + (Number(it.price)||0) * (Number(it.qty)||0), 0));
+          const discountAmount = computed(() => Math.floor(subtotal.value * (Number(discountPct.value)||0) / 100));
+          const taxable = computed(() => Math.max(0, subtotal.value - discountAmount.value));
+          const taxAmount = computed(() => Math.floor(taxable.value * (Number(taxPct.value)||0) / 100));
+          const total = computed(() => Math.max(0, taxable.value + taxAmount.value));
+
+          const activeTab = ref('pos');
+          const showPayment = ref(false);
+          const paymentMethod = ref('cash'); // 'cash' | 'qris' | 'other'
+          const showReceiptModal = ref(false);
+          const showSettings = ref(false);
+          const storeName = ref('Kasir Mini');
+          const storeAddress = ref('Jl. Contoh No. 123');
+          const storePhone = ref('0800-000-000');
+          const cash = ref(0);
+          const change = computed(() => paymentMethod.value==='cash' ? Math.max(0, (Number(cash.value)||0) - total.value) : 0);
+          const otherNote = ref('');
+          const qrisBase = ref('00020101021126570011ID.DANA.WWW011893600915323576397902092357639790303UMI51440014ID.CO.QRIS.WWW0215ID10221538453370303UMI5204504553033605802ID5908EL-M.net6013Kab. Pasuruan6105671516304280A');
+
+          const SETTINGS_KEY = 'kasirmini_settings_v1';
+          function loadSettings(){
+            try {
+              const raw = localStorage.getItem(SETTINGS_KEY);
+              if (!raw) return;
+              const s = JSON.parse(raw);
+              if (s.storeName) storeName.value = s.storeName;
+              if (s.storeAddress) storeAddress.value = s.storeAddress;
+              if (s.storePhone) storePhone.value = s.storePhone;
+              if (s.qrisBase) qrisBase.value = s.qrisBase;
+            } catch {}
+          }
+          function saveSettings(){
+            const s = {
+              storeName: storeName.value,
+              storeAddress: storeAddress.value,
+              storePhone: storePhone.value,
+              qrisBase: qrisBase.value,
+            };
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+          }
+
+          // QRIS helpers and computed payload
+          function stripCRC(payload){
+            const idx = payload.indexOf('6304');
+            return idx !== -1 ? payload.slice(0, idx) : payload;
+          }
+          function removeTag(payload, tag){
+            let i = 0;
+            while (i < payload.length - 4){
+              const t = payload.slice(i, i+2);
+              const len = parseInt(payload.slice(i+2, i+4), 10);
+              const valStart = i+4;
+              const valEnd = valStart + len;
+              if (t === tag){
+                return payload.slice(0, i) + payload.slice(valEnd);
+              }
+              i = valEnd;
+            }
+            return payload;
+          }
+          function insertAmount(payloadNoCRC, amount){
+            const amtStr = String(amount);
+            const len = amtStr.length.toString().padStart(2,'0');
+            const cleaned = removeTag(payloadNoCRC, '54');
+            return cleaned + '54' + len + amtStr;
+          }
+          function crc16ccitt(str){
+            let crc = 0xFFFF;
+            for (let i=0; i<str.length; i++){
+              crc ^= str.charCodeAt(i) << 8;
+              for (let j=0;j<8;j++){
+                if (crc & 0x8000) crc = (crc << 1) ^ 0x1021; else crc <<= 1;
+                crc &= 0xFFFF;
+              }
+            }
+            return crc.toString(16).toUpperCase().padStart(4,'0');
+          }
+          const qrisPayloadFinal = computed(() => {
+            try {
+              const baseNoCRC = stripCRC((qrisBase.value||'').trim());
+              const withAmount = insertAmount(baseNoCRC, total.value);
+              const toCRC = withAmount + '6304';
+              const crc = crc16ccitt(toCRC);
+              return withAmount + '6304' + crc;
+            } catch (e){ return qrisBase.value; }
+          });
+
+          // Render QR when method, total, payload, or modal state changes
+          async function renderQRIS() {
+            await nextTick();
+            const canvas = document.getElementById('qris-canvas');
+            const img = document.getElementById('qris-img');
+            if (!canvas || !img) return;
+            const data = qrisPayloadFinal.value || '';
+            if (window.QRCode) {
+              // Prefer canvas render
+              try {
+                await window.QRCode.toCanvas(canvas, data, { width: 200, margin: 1 });
+                canvas.classList.remove('hidden');
+                img.classList.add('hidden');
+              } catch (e) {
+                // fallback to external API image
+                img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(data);
+                img.classList.remove('hidden');
+                canvas.classList.add('hidden');
+              }
+            } else {
+              // Fallback if QRCode lib not loaded
+              img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(data);
+              img.classList.remove('hidden');
+              canvas.classList.add('hidden');
+            }
+          }
+          watch([paymentMethod, total, qrisBase, showPayment], async () => {
+            if (showPayment.value && paymentMethod.value==='qris') {
+              await renderQRIS();
+            }
+          }, { immediate: false });
+
+          const history = ref([]);
+          const filterStart = ref('');
+          const filterEnd = ref('');
+
+          const lastReceipt = ref(null);
+
+          const hasPrintableReceipt = computed(() => (cart.value.length > 0) || !!lastReceipt.value);
+
+          const currentReceipt = computed(() => {
+            if (cart.value.length > 0) {
+              return {
+                date: new Date().toISOString(),
+                id: null,
+                items: cart.value.map(i => ({ name: i.name, price: Number(i.price)||0, qty: Number(i.qty)||0 })),
+                subtotal: subtotal.value,
+                discountPct: Number(discountPct.value)||0,
+                discountAmount: discountAmount.value,
+                taxPct: Number(taxPct.value)||0,
+                taxAmount: taxAmount.value,
+                total: total.value,
+                paymentMethod: paymentMethod.value,
+                paymentNote: paymentMethod.value==='other' ? (otherNote.value||'') : '',
+                paid: Number(cash.value)||0,
+                change: change.value,
+              };
+            }
+            return lastReceipt.value || { items: [], total: 0 };
+          });
+
+          function formatIDR(n){ return idr.format(Number(n)||0); }
+          function formatDateTime(iso){ if (!iso) return '-'; const d = new Date(iso); return d.toLocaleString('id-ID'); }
+
+          function addItem(){
+            const name = (newItem.name||'').trim();
+            const price = Math.max(0, Number(newItem.price)||0);
+            if (!name || price <= 0) return;
+            const idx = cart.value.findIndex(x => x.name===name && Number(x.price)===price);
+            if (idx >= 0) cart.value[idx].qty += 1; else cart.value.push({ name, price, qty: 1 });
+            newItem.name=''; newItem.price=null;
+          }
+          function incQty(i){ cart.value[i].qty += 1; }
+          function decQty(i){ cart.value[i].qty = Math.max(1, Number(cart.value[i].qty)||1); if (cart.value[i].qty>1) cart.value[i].qty -= 1; }
+          function removeItem(i){ cart.value.splice(i,1); }
+          function clearCart(){ cart.value = []; cash.value = 0; }
+
+          function openPayment(){ showPayment.value = true; if (paymentMethod.value==='cash') cash.value = total.value; }
+
+          async function confirmPayment(){
+            if (paymentMethod.value === 'cash' && cash.value < total.value) return;
+            const tx = {
+              date: new Date().toISOString(),
+              items: cart.value.map(i => ({ name: i.name, price: Number(i.price)||0, qty: Number(i.qty)||0 })),
+              subtotal: subtotal.value,
+              discountPct: Number(discountPct.value)||0,
+              discountAmount: discountAmount.value,
+              taxPct: Number(taxPct.value)||0,
+              taxAmount: taxAmount.value,
+              total: total.value,
+              paymentMethod: paymentMethod.value,
+              paymentNote: paymentMethod.value==='other' ? (otherNote.value||'') : '',
+              paid: paymentMethod.value==='cash' ? (Number(cash.value)||0) : total.value,
+              change: paymentMethod.value==='cash' ? change.value : 0,
+            };
+            const id = await db.transactions.add(tx);
+            tx.id = id;
+            lastReceipt.value = tx;
+            await loadHistory();
+            showPayment.value = false;
+            clearCart();
+            activeTab.value = 'pos';
+            showReceiptModal.value = true; // auto show receipt
+            // reset transient fields
+            otherNote.value = '';
+            if (paymentMethod.value !== 'cash') cash.value = 0;
+          }
+
+          async function loadHistory(){
+            const all = await db.transactions.orderBy('date').reverse().toArray();
+            history.value = all;
+          }
+
+          const filteredHistory = computed(() => {
+            const start = filterStart.value ? new Date(filterStart.value + 'T00:00:00') : null;
+            const end = filterEnd.value ? new Date(filterEnd.value + 'T23:59:59.999') : null;
+            return history.value.filter(tx => {
+              const d = new Date(tx.date);
+              if (start && d < start) return false;
+              if (end && d > end) return false;
+              return true;
+            });
+          });
+
+          function loadReceipt(tx){
+            lastReceipt.value = JSON.parse(JSON.stringify(tx));
+            showReceiptModal.value = true;
+          }
+
+          function addCash(amount){ cash.value = (Number(cash.value)||0) + amount; }
+          function paymentLabel(m){ return m==='cash' ? 'Tunai' : (m==='qris' ? 'QRIS' : 'Lainnya'); }
+
+          async function printReceipt(){
+            if (!hasPrintableReceipt.value) return;
+            if (!showReceiptModal.value) { showReceiptModal.value = true; await nextTick(); }
+            window.print();
+          }
+
+          function buildReceiptText(r){
+            const L = [];
+            L.push(storeName.value);
+            L.push(storeAddress.value);
+            L.push('Telp: ' + storePhone.value);
+            L.push('');
+            L.push('Waktu: ' + formatDateTime(r.date));
+            L.push('ID: ' + (r.id || '-'));
+            L.push('');
+            (r.items||[]).forEach(it => {
+              L.push(`${it.name} x ${it.qty} - ${formatIDR((it.price||0)*(it.qty||0))}`);
+            });
+            L.push('');
+            L.push('Subtotal: ' + formatIDR(r.subtotal||0));
+            if ((r.discountAmount||0) > 0) L.push(`Diskon ${r.discountPct||0}%: -` + formatIDR(r.discountAmount||0));
+            if ((r.taxAmount||0) > 0) L.push(`Pajak ${r.taxPct||0}%: ` + formatIDR(r.taxAmount||0));
+            L.push('Total: ' + formatIDR(r.total||0));
+            if (r.paymentMethod) L.push('Metode: ' + paymentLabel(r.paymentMethod));
+            if (r.paymentNote) L.push('Catatan: ' + r.paymentNote);
+            L.push('Bayar: ' + formatIDR(r.paid||0));
+            L.push('Kembali: ' + formatIDR(r.change||0));
+            L.push('');
+            L.push('Terima kasih');
+            return L.join('\n');
+          }
+
+          async function shareReceiptWA(){
+            if (!hasPrintableReceipt.value) return;
+            const r = currentReceipt.value || {};
+            const text = buildReceiptText(r);
+            let files = [];
+            // Try to capture receipt as image if library available
+            try {
+              await nextTick();
+              const el = document.getElementById('receipt');
+              if (el && window.html2canvas) {
+                const canvas = await window.html2canvas(el, { backgroundColor: '#fff', scale: 2, useCORS: true });
+                const blob = await new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
+                if (blob) {
+                  files = [new File([blob], 'struk.png', { type: 'image/png' })];
+                }
+              }
+            } catch {}
+
+            if (navigator.share) {
+              try {
+                if (files.length && navigator.canShare && navigator.canShare({ files })) {
+                  await navigator.share({ files, text });
+                  return;
+                }
+                await navigator.share({ text });
+                return;
+              } catch {}
+            }
+            // Fallback to WhatsApp text share
+            const wa = 'https://wa.me/?text=' + encodeURIComponent(text);
+            window.open(wa, '_blank');
+          }
+
+          onMounted(async () => {
+            await loadHistory();
+            loadSettings();
+            // Register service worker for offline
+            if ('serviceWorker' in navigator) {
+              try { await navigator.serviceWorker.register('./sw.js', { scope: './' }); } catch (e) { console.warn('SW register failed', e); }
+            }
+          });
+
+          return {
+            // state
+            newItem, cart, discountPct, taxPct,
+            subtotal, discountAmount, taxable, taxAmount, total,
+            activeTab, showPayment, paymentMethod, cash, change, otherNote,
+            history, filterStart, filterEnd,
+            lastReceipt, showReceiptModal,
+            showSettings, storeName, storeAddress, storePhone,
+            qrisBase,
+
+            // computed
+            hasPrintableReceipt, currentReceipt, filteredHistory,
+            qrisPayloadFinal,
+
+            // methods
+            formatIDR, formatDateTime,
+            addItem, incQty, decQty, removeItem, clearCart,
+            openPayment, confirmPayment,
+            loadReceipt, printReceipt,
+            addCash, paymentLabel,
+            loadSettings, saveSettings,
+            shareReceiptWA,
+            };
+        }
+      });
+
+      app.mount('#app');
+    </script>
+  </body>
+  </html>
