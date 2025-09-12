@@ -45,6 +45,10 @@
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <span class="hidden sm:inline">Riwayat</span>
             </button>
+            <button @click="activeTab='products'" :class="activeTab==='products' ? 'bg-white/90 text-gray-900' : 'bg-white/10 text-white hover:bg-white/20'" class="px-3 py-1 rounded flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h3l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V5z"/></svg>
+              <span class="hidden sm:inline">Produk</span>
+            </button>
             <button @click="showSettings=true" class="ml-auto px-3 py-1 rounded bg-white/10 text-white hover:bg-white/20 flex items-center gap-2" aria-label="Pengaturan">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M11.983 1.574a1 1 0 00-1.966 0l-.117.586a1 1 0 01-.95.788l-.598.03a1 1 0 00-.905.62l-.232.561a1 1 0 01-.81.6l-.596.074a1 1 0 00-.827.727l-.157.587a1 1 0 01-.666.69l-.57.19a1 1 0 00-.62.905l.03.598a1 1 0 01-.788.95l-.586.117a1 1 0 000 1.966l.586.117a1 1 0 01.788.95l-.03.598a1 1 0 00.62.905l.57.19a1 1 0 01.666.69l.157.587a1 1 0 00.827.727l.596.074a1 1 0 01.81.6l.232.561a1 1 0 00.905.62l.598.03a1 1 0 01.95.788l.117.586a1 1 0 001.966 0l.117-.586a1 1 0 01.95-.788l.598-.03a1 1 0 00.905-.62l.232-.561a1 1 0 01.81-.6l.596-.074a1 1 0 00.827-.727l.157-.587a1 1 0 01.666-.69l.57-.19a1 1 0 00.62-.905l-.03-.598a1 1 0 01.788-.95l.586-.117a1 1 0 000-1.966l-.586-.117a1 1 0 01-.788-.95l.03-.598a1 1 0 00-.62-.905l-.57-.19a1 1 0 01-.666-.69l-.157-.587a1 1 0 00-.827-.727l-.596-.074a1 1 0 01-.81-.6l-.232-.561a1 1 0 00-.905-.62l-.598-.03a1 1 0 01-.95-.788l-.117-.586zM10 13a3 3 0 110-6 3 3 0 010 6z"/></svg>
               <span class="hidden sm:inline">Pengaturan</span>
@@ -57,7 +61,25 @@
       <main class="mx-auto max-w-3xl p-4">
         <!-- POS View -->
         <div v-if="activeTab==='pos'" class="space-y-4">
-          <!-- Add Item -->
+          <!-- Quick Products + Scan -->
+          <section class="bg-white rounded-2xl shadow p-4">
+            <div class="flex items-center gap-2 mb-3">
+              <input v-model="productQuery" placeholder="Cari produk..." class="flex-1 border rounded-lg px-3 py-2" />
+              <button @click="openScanner" class="px-3 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2" aria-label="Scan barcode">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 011-1h3v2H5v2H3V4zm9-1h3a1 1 0 011 1v3h-2V5h-2V3zM4 15H3v3a1 1 0 001 1h3v-2H4v-2zm10 2h-2v2h3a1 1 0 001-1v-3h-2v2z"/></svg>
+                <span class="hidden sm:inline">Scan</span>
+              </button>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-44 overflow-auto">
+              <button v-for="p in filteredProducts" :key="p.id" @click="addProductToCart(p)" class="border rounded-lg p-2 hover:bg-indigo-50 text-left">
+                <div class="text-sm font-medium truncate">{{ p.name }}</div>
+                <div class="text-xs text-gray-500">{{ formatIDR(p.price) }}</div>
+              </button>
+              <div v-if="filteredProducts.length===0" class="col-span-full text-xs text-gray-500">Tidak ada produk cocok.</div>
+            </div>
+          </section>
+
+          <!-- Add Item (manual) -->
           <section class="bg-white rounded-2xl shadow p-4">
             <h2 class="font-semibold mb-3">Tambah Item</h2>
             <div class="grid grid-cols-1 sm:grid-cols-6 gap-2">
@@ -67,7 +89,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/></svg>
               </button>
             </div>
-            <p class="text-xs text-gray-500 mt-2">Masukkan nama dan harga (Rupiah), lalu klik tambah untuk memasukkan ke keranjang.</p>
+            <p class="text-xs text-gray-500 mt-2">Anda bisa memilih dari master produk atau input manual di sini.</p>
           </section>
 
           <!-- Cart -->
@@ -147,8 +169,8 @@
           </section>
         </div>
 
-        <!-- History View -->
-        <div v-if="activeTab==='history'" class="space-y-4">
+      <!-- History View -->
+      <div v-if="activeTab==='history'" class="space-y-4">
           <section class="bg-white rounded-2xl shadow p-4">
             <h2 class="font-semibold mb-3">Riwayat Transaksi</h2>
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-3">
@@ -340,6 +362,52 @@
           </div>
         </div>
       </div>
+
+      <!-- Scanner Modal -->
+      <div v-if="showScanner" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div class="bg-white rounded-xl shadow p-4 w-full max-w-sm">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-semibold">Scan Barcode</h3>
+            <button @click="closeScanner" class="p-2 rounded hover:bg-gray-100" aria-label="Tutup">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.536-10.95a1 1 0 00-1.414-1.414L10 7.586 7.879 5.465A1 1 0 106.465 6.88L8.586 9l-2.121 2.121a1 1 0 101.414 1.415L10 10.414l2.121 2.122a1 1 0 001.415-1.415L11.414 9l2.122-2.121z" clip-rule="evenodd"/></svg>
+            </button>
+          </div>
+          <div class="rounded overflow-hidden">
+            <video id="scan-video" class="w-full max-h-80 bg-black"></video>
+          </div>
+          <div class="text-xs text-gray-500 mt-2">Arahkan kamera ke barcode produk.</div>
+          <div v-if="scanError" class="text-xs text-red-600 mt-1">{{ scanError }}</div>
+        </div>
+      </div>
+
+      <!-- Products (Master) View -->
+      <div v-if="activeTab==='products'" class="space-y-4">
+        <section class="bg-white rounded-2xl shadow p-4">
+          <h2 class="font-semibold mb-3">Master Produk</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-6 gap-2">
+            <input v-model="newProduct.name" placeholder="Nama produk" class="sm:col-span-2 border rounded px-3 py-2" />
+            <input v-model.number="newProduct.price" type="number" min="0" step="100" placeholder="Harga (Rp)" class="sm:col-span-2 border rounded px-3 py-2" />
+            <input v-model="newProduct.barcode" placeholder="Barcode (opsional)" class="sm:col-span-1 border rounded px-3 py-2" />
+            <button @click="saveProduct" class="sm:col-span-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2">Simpan</button>
+          </div>
+        </section>
+        <section class="bg-white rounded-2xl shadow p-4">
+          <h3 class="font-semibold mb-3">Daftar Produk</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-80 overflow-auto">
+            <div v-for="p in products" :key="p.id" class="border rounded p-3 flex items-center justify-between">
+              <div>
+                <div class="font-medium">{{ p.name }}</div>
+                <div class="text-xs text-gray-500">{{ formatIDR(p.price) }} • {{ p.barcode || '—' }}</div>
+              </div>
+              <div class="flex gap-2">
+                <button class="px-2 py-1 rounded border" @click="editProduct(p)">Edit</button>
+                <button class="px-2 py-1 rounded border text-red-600" @click="deleteProduct(p.id)">Hapus</button>
+              </div>
+            </div>
+            <div v-if="products.length===0" class="text-xs text-gray-500">Belum ada produk.</div>
+          </div>
+        </section>
+      </div>
     </div>
 
     <!-- Dexie CDN (global Dexie) -->
@@ -358,6 +426,7 @@
       // IndexedDB via Dexie
       const db = new window.Dexie('kasirmini');
       db.version(1).stores({ transactions: '++id, date' });
+      db.version(2).stores({ transactions: '++id, date', products: '++id, name, barcode' });
 
       const app = createApp({
         setup() {
@@ -486,12 +555,22 @@
           }, { immediate: false });
 
           const history = ref([]);
+          const products = ref([]);
+          const newProduct = reactive({ id: null, name: '', price: null, barcode: '' });
+          const productQuery = ref('');
+          const showScanner = ref(false);
+          const scanError = ref('');
           const filterStart = ref('');
           const filterEnd = ref('');
 
           const lastReceipt = ref(null);
 
           const hasPrintableReceipt = computed(() => (cart.value.length > 0) || !!lastReceipt.value);
+          const filteredProducts = computed(() => {
+            const q = (productQuery.value||'').toLowerCase().trim();
+            if (!q) return products.value.slice(0, 20);
+            return products.value.filter(p => (p.name||'').toLowerCase().includes(q) || (p.barcode||'').includes(q)).slice(0, 50);
+          });
 
           const currentReceipt = computed(() => {
             if (cart.value.length > 0) {
@@ -529,6 +608,10 @@
           function decQty(i){ cart.value[i].qty = Math.max(1, Number(cart.value[i].qty)||1); if (cart.value[i].qty>1) cart.value[i].qty -= 1; }
           function removeItem(i){ cart.value.splice(i,1); }
           function clearCart(){ cart.value = []; cash.value = 0; }
+          function addProductToCart(p){
+            const idx = cart.value.findIndex(x => x.name===p.name && Number(x.price)===Number(p.price));
+            if (idx >= 0) cart.value[idx].qty += 1; else cart.value.push({ name: p.name, price: Number(p.price)||0, qty: 1 });
+          }
 
           function openPayment(){ showPayment.value = true; if (paymentMethod.value==='cash') cash.value = total.value; }
 
@@ -564,6 +647,54 @@
           async function loadHistory(){
             const all = await db.transactions.orderBy('date').reverse().toArray();
             history.value = all;
+          }
+          async function loadProducts(){ products.value = await db.products.toArray(); }
+          async function saveProduct(){
+            const name = (newProduct.name||'').trim();
+            const price = Math.max(0, Number(newProduct.price)||0);
+            const barcode = (newProduct.barcode||'').trim();
+            if (!name || price<=0) return;
+            if (newProduct.id){
+              await db.products.update(newProduct.id, { name, price, barcode });
+            } else {
+              await db.products.add({ name, price, barcode });
+            }
+            Object.assign(newProduct, { id:null, name:'', price:null, barcode:'' });
+            await loadProducts();
+          }
+          function editProduct(p){ Object.assign(newProduct, p); }
+          async function deleteProduct(id){ await db.products.delete(id); await loadProducts(); }
+
+          // Scanner
+          let codeReader = null;
+          async function openScanner(){
+            scanError.value=''; showScanner.value = true;
+            await nextTick();
+            try {
+              const ZX = window.ZXingBrowser || window.ZXing || {};
+              const Reader = ZX.BrowserMultiFormatReader || (ZX.BrowserCodeReader && ZX.BrowserCodeReader);
+              if (!Reader) throw new Error('Library pemindai tidak tersedia');
+              codeReader = new Reader();
+              const video = document.getElementById('scan-video');
+              const devices = await (ZX.BrowserCodeReader ? ZX.BrowserCodeReader.listVideoInputDevices() : Reader.listVideoInputDevices());
+              const deviceId = (devices && devices[0] && devices[0].deviceId) || undefined;
+              await codeReader.decodeFromVideoDevice(deviceId, video, async (result, err) => {
+                if (result && result.text) {
+                  try {
+                    const code = result.text.trim();
+                    const found = await db.products.where('barcode').equals(code).first();
+                    if (found) addProductToCart(found);
+                    else scanError.value = `Barcode tidak dikenal: ${code}`;
+                    closeScanner();
+                  } catch(e){ scanError.value = 'Gagal memproses barcode'; }
+                }
+              });
+            } catch (e){ scanError.value = e.message || 'Gagal membuka kamera'; }
+          }
+          async function closeScanner(){
+            showScanner.value = false;
+            try{ if (codeReader && codeReader.reset) codeReader.reset(); } catch {}
+            codeReader = null;
           }
 
           const filteredHistory = computed(() => {
@@ -652,6 +783,7 @@
 
           onMounted(async () => {
             await loadHistory();
+            await loadProducts();
             loadSettings();
             // Register service worker for offline
             if ('serviceWorker' in navigator) {
@@ -667,6 +799,8 @@
             history, filterStart, filterEnd,
             lastReceipt, showReceiptModal,
             showSettings, storeName, storeAddress, storePhone,
+            products, newProduct, productQuery, filteredProducts,
+            showScanner, scanError,
             qrisBase,
 
             // computed
@@ -681,6 +815,9 @@
             addCash, paymentLabel,
             loadSettings, saveSettings,
             shareReceiptWA,
+            loadProducts, saveProduct, editProduct, deleteProduct,
+            addProductToCart,
+            openScanner, closeScanner,
             };
         }
       });

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kasirmini-cache-v8';
+const CACHE_NAME = 'kasirmini-cache-v9';
 const CORE_ASSETS = [
   './',
   './index.html',
