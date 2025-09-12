@@ -175,7 +175,7 @@
       <div v-if="activeTab==='history'" class="space-y-4">
           <section class="bg-white rounded-2xl shadow p-4">
             <h2 class="font-semibold mb-3">Riwayat Transaksi</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-3">
+            <div class="grid grid-cols-1 sm:grid-cols-6 gap-2 mb-3">
               <div class="sm:col-span-2">
                 <label class="text-xs text-gray-500">Tanggal awal</label>
                 <input type="date" v-model="filterStart" class="w-full border rounded px-2 py-1" />
@@ -184,12 +184,36 @@
                 <label class="text-xs text-gray-500">Tanggal akhir</label>
                 <input type="date" v-model="filterEnd" class="w-full border rounded px-2 py-1" />
               </div>
+              <div class="sm:col-span-1">
+                <label class="text-xs text-gray-500">Metode</label>
+                <select v-model="historyMethod" class="w-full border rounded px-2 py-1">
+                  <option value="">Semua</option>
+                  <option value="cash">Tunai</option>
+                  <option value="qris">QRIS</option>
+                  <option value="other">Lainnya</option>
+                </select>
+              </div>
+              <div class="sm:col-span-1">
+                <label class="text-xs text-gray-500">Cari</label>
+                <input type="text" v-model.trim="historyQuery" placeholder="ID/produk/catatan" class="w-full border rounded px-2 py-1" />
+              </div>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+              <div class="text-sm text-gray-700 flex flex-wrap gap-x-4 gap-y-1">
+                <span><span class="text-gray-500">Transaksi:</span> {{ historySummary.count }}</span>
+                <span><span class="text-gray-500">Omzet:</span> <span class="tabular-nums font-medium">{{ formatIDR(historySummary.total) }}</span></span>
+                <span><span class="text-gray-500">Rata-rata:</span> <span class="tabular-nums">{{ formatIDR(historySummary.avg) }}</span></span>
+              </div>
+              <div class="flex gap-2">
+                <button @click="exportHistoryCSV" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-sm">Ekspor CSV</button>
+                <button @click="resetHistoryFilters" class="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm">Reset</button>
+              </div>
             </div>
             <div class="divide-y">
               <div v-for="tx in filteredHistory" :key="tx.id" class="py-2 flex items-center justify-between">
                 <div>
                   <div class="text-sm">{{ formatDateTime(tx.date) }}</div>
-                  <div class="text-xs text-gray-500">{{ tx.items.length }} item</div>
+                  <div class="text-xs text-gray-500">{{ tx.items.length }} item • {{ paymentLabel(tx.paymentMethod) }}</div>
                 </div>
                 <div class="text-right">
                   <div class="font-medium tabular-nums">{{ formatIDR(tx.total) }}</div>
@@ -198,6 +222,7 @@
                   </div>
                 </div>
               </div>
+              <div v-if="filteredHistory.length===0" class="py-6 text-center text-sm text-gray-500">Tidak ada transaksi untuk filter saat ini.</div>
             </div>
           </section>
         </div>
@@ -425,10 +450,88 @@
       // Currency util for IDR
       const idr = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 });
 
-      // IndexedDB via Dexie
+      // IndexedDB via Dexie (products) and Native helper (transactions)
       const db = new window.Dexie('kasirmini');
       db.version(1).stores({ transactions: '++id, date' });
       db.version(2).stores({ transactions: '++id, date', products: '++id, name, barcode' });
+
+      // Lightweight IndexedDB helper (no external lib) for transactions
+      const idbTx = (() => {
+        let dbp = null;
+        function open(){
+          if (dbp) return dbp;
+          dbp = new Promise((resolve, reject) => {
+            const req = indexedDB.open('kasirmini_native', 1);
+            req.onupgradeneeded = () => {
+              const idb = req.result;
+              if (!idb.objectStoreNames.contains('transactions')){
+                const store = idb.createObjectStore('transactions', { keyPath: 'id', autoIncrement: true });
+                try { store.createIndex('date', 'date', { unique: false }); } catch {}
+              }
+            };
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+          });
+          return dbp;
+        }
+        async function add(doc){
+          const idb = await open();
+          return new Promise((resolve, reject) => {
+            const tx = idb.transaction('transactions', 'readwrite');
+            const store = tx.objectStore('transactions');
+            const req = store.add(doc);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+          });
+        }
+        async function putMany(list){
+          const idb = await open();
+          return new Promise((resolve, reject) => {
+            const tx = idb.transaction('transactions', 'readwrite');
+            const store = tx.objectStore('transactions');
+            for (const doc of list){ store.put(doc); }
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => reject(tx.error);
+          });
+        }
+        async function getAllDesc(){
+          const idb = await open();
+          return new Promise((resolve, reject) => {
+            const tx = idb.transaction('transactions', 'readonly');
+            const store = tx.objectStore('transactions');
+            let results = [];
+            let req;
+            try {
+              const idx = store.index('date');
+              req = idx.openCursor(null, 'prev');
+            } catch {
+              req = store.openCursor(null, 'prev');
+            }
+            req.onsuccess = (e) => {
+              const cursor = e.target.result;
+              if (cursor){ results.push(cursor.value); cursor.continue(); }
+              else resolve(results);
+            };
+            req.onerror = () => reject(req.error);
+          });
+        }
+        return { open, add, putMany, getAllDesc };
+      })();
+
+      async function migrateDexieTransactionsOnce(){
+        try {
+          const native = await idbTx.getAllDesc();
+          if (native && native.length) return; // already migrated/has data
+          if (window.Dexie && db?.transactions){
+            const legacy = await db.transactions.toArray();
+            if (legacy && legacy.length){
+              // Preserve IDs when possible
+              const toPut = legacy.map(x => ({ ...x }));
+              await idbTx.putMany(toPut);
+            }
+          }
+        } catch {}
+      }
 
       const app = createApp({
         setup() {
@@ -557,6 +660,8 @@
           }, { immediate: false });
 
           const history = ref([]);
+          const historyQuery = ref('');
+          const historyMethod = ref('');
           const products = ref([]);
           const newProduct = reactive({ id: null, name: '', price: null, barcode: '' });
           const productQuery = ref('');
@@ -633,7 +738,7 @@
               paid: paymentMethod.value==='cash' ? (Number(cash.value)||0) : total.value,
               change: paymentMethod.value==='cash' ? change.value : 0,
             };
-            const id = await db.transactions.add(tx);
+            const id = await idbTx.add(tx);
             tx.id = id;
             lastReceipt.value = tx;
             await loadHistory();
@@ -647,7 +752,8 @@
           }
 
           async function loadHistory(){
-            const all = await db.transactions.orderBy('date').reverse().toArray();
+            await migrateDexieTransactionsOnce();
+            const all = await idbTx.getAllDesc();
             history.value = all;
           }
           async function loadProducts(){ products.value = await db.products.toArray(); }
@@ -746,13 +852,70 @@
           const filteredHistory = computed(() => {
             const start = filterStart.value ? new Date(filterStart.value + 'T00:00:00') : null;
             const end = filterEnd.value ? new Date(filterEnd.value + 'T23:59:59.999') : null;
+            const method = (historyMethod.value||'').trim();
+            const q = (historyQuery.value||'').toLowerCase();
             return history.value.filter(tx => {
               const d = new Date(tx.date);
               if (start && d < start) return false;
               if (end && d > end) return false;
+              if (method && tx.paymentMethod !== method) return false;
+              if (q){
+                const idStr = String(tx.id||'');
+                const note = (tx.paymentNote||'').toLowerCase();
+                const itemsStr = (tx.items||[]).map(i => (i.name||'').toLowerCase()).join(' ');
+                if (!(idStr.includes(q) || note.includes(q) || itemsStr.includes(q))) return false;
+              }
               return true;
             });
           });
+
+          const historySummary = computed(() => {
+            const arr = filteredHistory.value;
+            const totalSum = arr.reduce((s, t) => s + (Number(t.total)||0), 0);
+            const count = arr.length;
+            return { count, total: totalSum, avg: count ? Math.floor(totalSum / count) : 0 };
+          });
+
+          function resetHistoryFilters(){
+            historyQuery.value = '';
+            historyMethod.value = '';
+            filterStart.value = '';
+            filterEnd.value = '';
+          }
+
+          function exportHistoryCSV(){
+            const rows = [];
+            const header = ['id','date','total','paymentMethod','itemsCount','discountPct','taxPct','paid','change','paymentNote','items'];
+            rows.push(header.join(','));
+            for (const tx of filteredHistory.value){
+              const itemsText = (tx.items||[]).map(i => `${(i.name||'').replaceAll('"','""')} x ${i.qty} @ ${i.price}`).join('; ');
+              const cols = [
+                tx.id ?? '',
+                tx.date ?? '',
+                tx.total ?? 0,
+                tx.paymentMethod ?? '',
+                (tx.items||[]).length,
+                tx.discountPct ?? 0,
+                tx.taxPct ?? 0,
+                tx.paid ?? 0,
+                tx.change ?? 0,
+                (tx.paymentNote||'').replaceAll('"','""'),
+                itemsText,
+              ].map(v => typeof v === 'string' ? `"${v}"` : v);
+              rows.push(cols.join(','));
+            }
+            const csv = rows.join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+            a.download = `riwayat-${ts}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
 
           function loadReceipt(tx){
             lastReceipt.value = JSON.parse(JSON.stringify(tx));
@@ -842,7 +1005,7 @@
             newItem, cart, discountPct, taxPct,
             subtotal, discountAmount, taxable, taxAmount, total,
             activeTab, showPayment, paymentMethod, cash, change, otherNote,
-            history, filterStart, filterEnd,
+            history, historyQuery, historyMethod, filterStart, filterEnd,
             lastReceipt, showReceiptModal,
             showSettings, storeName, storeAddress, storePhone,
             products, newProduct, productQuery, filteredProducts,
@@ -850,7 +1013,7 @@
             qrisBase,
 
             // computed
-            hasPrintableReceipt, currentReceipt, filteredHistory,
+            hasPrintableReceipt, currentReceipt, filteredHistory, historySummary,
             qrisPayloadFinal,
 
             // methods
@@ -863,6 +1026,7 @@
             shareReceiptWA,
             loadProducts, saveProduct, editProduct, deleteProduct,
             addProductToCart,
+            resetHistoryFilters, exportHistoryCSV,
             openScanner, closeScanner,
             };
         }
