@@ -373,7 +373,7 @@
             </button>
           </div>
           <div class="rounded overflow-hidden">
-            <video id="scan-video" class="w-full max-h-80 bg-black"></video>
+            <video id="scan-video" class="w-full max-h-80 bg-black" playsinline></video>
           </div>
           <div class="text-xs text-gray-500 mt-2">Arahkan kamera ke barcode produk.</div>
           <div v-if="scanError" class="text-xs text-red-600 mt-1">{{ scanError }}</div>
@@ -667,34 +667,78 @@
 
           // Scanner
           let codeReader = null;
+          let mediaStream = null;
+          let scanningActive = false;
           async function openScanner(){
             scanError.value=''; showScanner.value = true;
             await nextTick();
+            const video = document.getElementById('scan-video');
             try {
+              // Always request camera to trigger permission prompt
+              mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+              video.srcObject = mediaStream;
+              await video.play();
+
+              // Prefer native BarcodeDetector if available
+              if ('BarcodeDetector' in window) {
+                const formats = ['ean_13','ean_8','code_128','code_39','upc_a','upc_e','itf','qr_code'];
+                const detector = new window.BarcodeDetector({ formats });
+                scanningActive = true;
+                const loop = async () => {
+                  if (!scanningActive) return;
+                  try {
+                    const codes = await detector.detect(video);
+                    if (codes && codes.length) {
+                      const code = (codes[0].rawValue || codes[0].raw || '').trim();
+                      if (code) {
+                        const found = await db.products.where('barcode').equals(code).first();
+                        if (found) addProductToCart(found); else scanError.value = `Barcode tidak dikenal: ${code}`;
+                        await closeScanner();
+                        return;
+                      }
+                    }
+                  } catch {}
+                  requestAnimationFrame(loop);
+                };
+                requestAnimationFrame(loop);
+                return;
+              }
+
+              // Fallback to ZXing library if available
               const ZX = window.ZXingBrowser || window.ZXing || {};
               const Reader = ZX.BrowserMultiFormatReader || (ZX.BrowserCodeReader && ZX.BrowserCodeReader);
-              if (!Reader) throw new Error('Library pemindai tidak tersedia');
-              codeReader = new Reader();
-              const video = document.getElementById('scan-video');
-              const devices = await (ZX.BrowserCodeReader ? ZX.BrowserCodeReader.listVideoInputDevices() : Reader.listVideoInputDevices());
-              const deviceId = (devices && devices[0] && devices[0].deviceId) || undefined;
-              await codeReader.decodeFromVideoDevice(deviceId, video, async (result, err) => {
-                if (result && result.text) {
-                  try {
-                    const code = result.text.trim();
-                    const found = await db.products.where('barcode').equals(code).first();
-                    if (found) addProductToCart(found);
-                    else scanError.value = `Barcode tidak dikenal: ${code}`;
-                    closeScanner();
-                  } catch(e){ scanError.value = 'Gagal memproses barcode'; }
-                }
-              });
-            } catch (e){ scanError.value = e.message || 'Gagal membuka kamera'; }
+              if (Reader) {
+                codeReader = new Reader();
+                await codeReader.decodeFromVideoDevice(undefined, video, async (result, err) => {
+                  if (result && result.text) {
+                    try {
+                      const code = result.text.trim();
+                      const found = await db.products.where('barcode').equals(code).first();
+                      if (found) addProductToCart(found);
+                      else scanError.value = `Barcode tidak dikenal: ${code}`;
+                      await closeScanner();
+                    } catch(e){ scanError.value = 'Gagal memproses barcode'; }
+                  }
+                });
+                return;
+              }
+
+              scanError.value = 'Library pemindai tidak tersedia';
+            } catch (e){
+              scanError.value = (e && e.message) ? e.message : 'Gagal membuka kamera';
+            }
           }
           async function closeScanner(){
+            scanningActive = false;
             showScanner.value = false;
             try{ if (codeReader && codeReader.reset) codeReader.reset(); } catch {}
             codeReader = null;
+            try {
+              const video = document.getElementById('scan-video');
+              if (video) { video.pause(); video.srcObject = null; }
+              if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); }
+            } catch {}
+            mediaStream = null;
           }
 
           const filteredHistory = computed(() => {
