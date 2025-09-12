@@ -5,6 +5,26 @@
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#111827",
-  "description": "Kasir sederhana: item custom, keranjang, pembayaran, riwayat, cetak struk."
+  "description": "Kasir sederhana: item custom, keranjang, pembayaran, riwayat, cetak struk.",
+  "icons": [
+    {
+      "src": "icons/android/android-launchericon-192-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/android/android-launchericon-512-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/ios/180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
 }
 

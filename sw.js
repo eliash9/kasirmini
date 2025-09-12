@@ -1,9 +1,15 @@
-const CACHE_NAME = 'kasirmini-cache-v10';
+const CACHE_NAME = 'kasirmini-cache-v11';
 const CORE_ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './sw.js',
+  // PWA icons
+  './icons/ios/16.png',
+  './icons/ios/32.png',
+  './icons/ios/180.png',
+  './icons/android/android-launchericon-192-192.png',
+  './icons/android/android-launchericon-512-512.png',
 ];
 
 self.addEventListener('install', (event) => {
