@@ -204,11 +204,14 @@
                 <span><span class="text-gray-500">Omzet:</span> <span class="tabular-nums font-medium">{{ formatIDR(historySummary.total) }}</span></span>
                 <span><span class="text-gray-500">Rata-rata:</span> <span class="tabular-nums">{{ formatIDR(historySummary.avg) }}</span></span>
               </div>
-              <div class="flex gap-2">
+            <div class="flex gap-2">
                 <button @click="exportHistoryCSV" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-sm">Ekspor CSV</button>
+                <button @click="backupAllToSheet" class="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm" :disabled="!gsWebAppUrl || !gsSheetId">Backup ke Sheet</button>
+                <button @click="restoreFromSheetUI" class="px-3 py-1.5 rounded bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-sm" :disabled="!gsWebAppUrl || !gsSheetId">Restore dari Sheet</button>
                 <button @click="resetHistoryFilters" class="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm">Reset</button>
               </div>
             </div>
+            <div v-if="backupStatus" class="mb-2 text-xs" :class="backupStatusOk ? 'text-emerald-700' : 'text-rose-700'">{{ backupStatus }}</div>
             <div class="divide-y">
               <div v-for="tx in filteredHistory" :key="tx.id" class="py-2 flex items-center justify-between">
                 <div>
@@ -410,10 +413,45 @@
               <textarea v-model="qrisBase" rows="3" class="w-full border rounded px-3 py-2" placeholder="000201..."></textarea>
               <p class="text-xs text-gray-500 mt-1">Nominal dan CRC akan dihitung otomatis saat pembayaran.</p>
             </div>
+            <div class="pt-1">
+              <h4 class="font-medium text-sm mb-1">Backup ke Google Sheets</h4>
+              <div class="space-y-2">
+                <div>
+                  <label class="text-xs text-gray-600">Apps Script Web App URL</label>
+                  <input v-model.trim="gsWebAppUrl" class="w-full border rounded px-3 py-2" placeholder="https://script.google.com/macros/s/AKfycb.../exec" />
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label class="text-xs text-gray-600">Spreadsheet ID</label>
+                    <input v-model.trim="gsSheetId" class="w-full border rounded px-3 py-2" placeholder="1AbC..." />
+                  </div>
+                  <div>
+                    <label class="text-xs text-gray-600">Sheet Name</label>
+                    <input v-model.trim="gsSheetName" class="w-full border rounded px-3 py-2" placeholder="Backup" />
+                  </div>
+                </div>
+                <div>
+                  <label class="text-xs text-gray-600">Secret Token (opsional)</label>
+                  <input v-model.trim="gsSecret" class="w-full border rounded px-3 py-2" placeholder="mis. rahasia-123" />
+                  <p class="text-xs text-gray-500 mt-1">Set juga APP_SECRET di Apps Script agar request tidak sembarang.</p>
+                </div>
+                <label class="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" v-model="gsUseColumns" />
+                  Simpan per kolom (bukan JSON)
+                </label>
+                <label class="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" v-model="autoBackup" />
+                  Auto backup setelah pembayaran
+                </label>
+                <p class="text-xs text-gray-500">Ganti Spreadsheet ID kapan saja untuk backup/restore ke file berbeda.</p>
+              </div>
+            </div>
             <div class="flex justify-end gap-2 pt-2">
               <button @click="showSettings=false" class="px-3 py-2 rounded border">Batal</button>
+              <button @click="testGsConnection" class="px-3 py-2 rounded bg-amber-500 text-white" :disabled="testBusy">{{ testBusy ? 'Menguji...' : 'Test Koneksi' }}</button>
               <button @click="saveSettings(); showSettings=false" class="px-3 py-2 rounded bg-indigo-600 text-white">Simpan</button>
             </div>
+            <div v-if="testStatus" class="mt-2 text-xs" :class="testOk ? 'text-emerald-700' : 'text-rose-700'">{{ testStatus }}</div>
           </div>
         </div>
       </div>
@@ -560,6 +598,19 @@
           const otherNote = ref('');
           const qrisBase = ref('00020101021126570011ID.DANA.WWW011893600915323576397902092357639790303UMI51440014ID.CO.QRIS.WWW0215ID10221538453370303UMI5204504553033605802ID5908EL-M.net6013Kab. Pasuruan6105671516304280A');
 
+          // Google Sheets backup settings
+          const gsWebAppUrl = ref('');
+          const gsSheetId = ref('');
+          const gsSheetName = ref('Backup');
+          const gsSecret = ref('');
+          const gsUseColumns = ref(false);
+          const autoBackup = ref(false);
+          const backupStatus = ref('');
+          const backupStatusOk = ref(true);
+          const testStatus = ref('');
+          const testOk = ref(false);
+          const testBusy = ref(false);
+
           const SETTINGS_KEY = 'kasirmini_settings_v1';
           function loadSettings(){
             try {
@@ -570,6 +621,12 @@
               if (s.storeAddress) storeAddress.value = s.storeAddress;
               if (s.storePhone) storePhone.value = s.storePhone;
               if (s.qrisBase) qrisBase.value = s.qrisBase;
+              if (s.gsWebAppUrl) gsWebAppUrl.value = s.gsWebAppUrl;
+              if (s.gsSheetId) gsSheetId.value = s.gsSheetId;
+              if (s.gsSheetName) gsSheetName.value = s.gsSheetName;
+              if (s.gsSecret) gsSecret.value = s.gsSecret;
+              if (typeof s.gsUseColumns === 'boolean') gsUseColumns.value = s.gsUseColumns;
+              if (typeof s.autoBackup === 'boolean') autoBackup.value = s.autoBackup;
             } catch {}
           }
           function saveSettings(){
@@ -578,6 +635,12 @@
               storeAddress: storeAddress.value,
               storePhone: storePhone.value,
               qrisBase: qrisBase.value,
+              gsWebAppUrl: gsWebAppUrl.value,
+              gsSheetId: gsSheetId.value,
+              gsSheetName: gsSheetName.value,
+              gsSecret: gsSecret.value,
+              gsUseColumns: gsUseColumns.value,
+              autoBackup: autoBackup.value,
             };
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
           }
@@ -750,6 +813,11 @@
             // reset transient fields
             otherNote.value = '';
             if (paymentMethod.value !== 'cash') cash.value = 0;
+
+            // Optional auto backup single transaction
+            if (autoBackup.value) {
+              try { await backupToSheet([tx]); } catch {}
+            }
           }
 
           async function loadHistory(){
@@ -918,6 +986,130 @@
             URL.revokeObjectURL(url);
           }
 
+          // ===== Google Sheets Backup/Restore =====
+          function serializeTx(tx){
+            return {
+              id: tx.id ?? null,
+              date: tx.date ?? '',
+              subtotal: Number(tx.subtotal)||0,
+              discountPct: Number(tx.discountPct)||0,
+              discountAmount: Number(tx.discountAmount)||0,
+              taxPct: Number(tx.taxPct)||0,
+              taxAmount: Number(tx.taxAmount)||0,
+              total: Number(tx.total)||0,
+              paymentMethod: tx.paymentMethod || '',
+              paymentNote: tx.paymentNote || '',
+              paid: Number(tx.paid)||0,
+              change: Number(tx.change)||0,
+              items: (tx.items||[]).map(i => ({ name: i.name||'', price: Number(i.price)||0, qty: Number(i.qty)||0 })),
+            };
+          }
+          async function appsScriptCall(body){
+            if (!gsWebAppUrl.value) throw new Error('Apps Script URL kosong');
+            // Sertakan secret di body (tanpa custom header agar tidak preflight)
+            const payload = { ...body };
+            if (gsSecret.value) payload.secret = gsSecret.value;
+            // Gunakan Content-Type sederhana agar tidak memicu preflight (CORS)
+            const res = await fetch(gsWebAppUrl.value, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(payload),
+            });
+            const text = await res.text().catch(()=>'');
+            let data = null;
+            try { data = text ? JSON.parse(text) : null; } catch {}
+            if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText} ${text||''}`.trim());
+            if (!data) throw new Error(`Respon tidak valid: ${text?.slice(0,200)}`);
+          return data;
+          }
+          async function testGsConnection(){
+            testBusy.value = true; testStatus.value=''; testOk.value=false;
+            try{
+              if (!gsWebAppUrl.value || !gsSheetId.value) throw new Error('Isi URL & Spreadsheet ID');
+              const resp = await appsScriptCall({ action:'list', format: gsUseColumns.value ? 'columns' : 'json', sheetId: gsSheetId.value, sheetName: gsSheetName.value||'Backup' });
+              const count = Array.isArray(resp?.rows) ? resp.rows.length : 0;
+              testStatus.value = `Terhubung. Rows: ${count}`; testOk.value = true;
+            } catch(e){ testStatus.value = 'Gagal: ' + (e?.message||''); testOk.value = false; }
+            finally { testBusy.value = false; }
+          }
+          async function backupToSheet(rows){
+            backupStatus.value = 'Menyimpan ke Google Sheet...'; backupStatusOk.value = true;
+            if (!gsWebAppUrl.value || !gsSheetId.value) {
+              backupStatus.value = 'Konfigurasi Sheet belum lengkap'; backupStatusOk.value = false; return;
+            }
+            const payload = {
+              action: 'append',
+              sheetId: gsSheetId.value,
+              sheetName: gsSheetName.value || 'Backup',
+              format: gsUseColumns.value ? 'columns' : 'json',
+              rows: rows.map(serializeTx),
+            };
+            try {
+              const resp = await appsScriptCall(payload);
+              if (resp && resp.ok) {
+                backupStatus.value = `Backup sukses: ${resp.inserted ?? rows.length} baris`;
+                backupStatusOk.value = true;
+              } else {
+                backupStatus.value = 'Backup gagal'; backupStatusOk.value = false;
+              }
+            } catch (e){ backupStatus.value = 'Backup gagal: ' + (e?.message||''); backupStatusOk.value = false; }
+          }
+          async function backupAllToSheet(){
+            const rows = (typeof filteredHistory !== 'undefined' && filteredHistory?.value ? filteredHistory.value : (history.value || []));
+            await backupToSheet(rows);
+          }
+          async function restoreFromSheet(replace=false){
+            backupStatus.value = 'Mengambil data dari Google Sheet...'; backupStatusOk.value = true;
+            if (!gsWebAppUrl.value || !gsSheetId.value) {
+              backupStatus.value = 'Konfigurasi Sheet belum lengkap'; backupStatusOk.value = false; return;
+            }
+            try {
+              const payload = { action: 'list', format: gsUseColumns.value ? 'columns' : 'json', sheetId: gsSheetId.value, sheetName: gsSheetName.value || 'Backup' };
+              const resp = await appsScriptCall(payload);
+              const rows = resp?.rows || resp?.transactions || [];
+              if (!Array.isArray(rows)) { backupStatus.value = 'Format data tidak dikenali'; backupStatusOk.value = false; return; }
+              const cleaned = rows.map(r => ({
+                id: r.id ?? undefined,
+                date: r.date,
+                items: Array.isArray(r.items) ? r.items : [],
+                subtotal: Number(r.subtotal)||0,
+                discountPct: Number(r.discountPct)||0,
+                discountAmount: Number(r.discountAmount)||0,
+                taxPct: Number(r.taxPct)||0,
+                taxAmount: Number(r.taxAmount)||0,
+                total: Number(r.total)||0,
+                paymentMethod: r.paymentMethod || '',
+                paymentNote: r.paymentNote || '',
+                paid: Number(r.paid)||0,
+                change: Number(r.change)||0,
+              }));
+
+              if (replace) {
+                // Clear and import all
+                const idb = await idbTx.open();
+                await new Promise((resolve, reject) => {
+                  const tx = idb.transaction('transactions','readwrite');
+                  tx.objectStore('transactions').clear();
+                  tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+                });
+                await idbTx.putMany(cleaned);
+              } else {
+                // Merge by skipping existing IDs
+                const existing = await idbTx.getAllDesc();
+                const existingIds = new Set((existing||[]).map(x => x.id).filter(v => v !== undefined && v !== null));
+                const toPut = cleaned.filter(x => (x.id === undefined || x.id === null) ? true : !existingIds.has(x.id));
+                if (toPut.length) await idbTx.putMany(toPut);
+              }
+              await loadHistory();
+              backupStatus.value = `Restore selesai: ${cleaned.length} transaksi`;
+              backupStatusOk.value = true;
+            } catch (e){ backupStatus.value = 'Restore gagal: ' + (e?.message||''); backupStatusOk.value = false; }
+          }
+          async function restoreFromSheetUI(){
+            const doReplace = confirm('Restore dari Sheet? OK=Replace semua, Cancel=Merge');
+            await restoreFromSheet(!!doReplace);
+          }
+
           function loadReceipt(tx){
             lastReceipt.value = JSON.parse(JSON.stringify(tx));
             showReceiptModal.value = true;
@@ -1012,6 +1204,9 @@
             products, newProduct, productQuery, filteredProducts,
             showScanner, scanError,
             qrisBase,
+            gsWebAppUrl, gsSheetId, gsSheetName, gsSecret, gsUseColumns, autoBackup,
+            backupStatus, backupStatusOk,
+            testStatus, testOk, testBusy, testGsConnection,
 
             // computed
             hasPrintableReceipt, currentReceipt, filteredHistory, historySummary,
@@ -1029,6 +1224,7 @@
             addProductToCart,
             resetHistoryFilters, exportHistoryCSV,
             openScanner, closeScanner,
+            backupAllToSheet, restoreFromSheetUI,
             };
         }
       });
