@@ -244,6 +244,15 @@
       <div v-if="activeTab==='products'" class="space-y-4">
         <section class="bg-white rounded-2xl shadow p-4">
           <h2 class="font-semibold mb-3">Master Produk</h2>
+          <div class="flex flex-wrap gap-2 mb-3">
+            <button @click="exportProductsJSON" class="px-3 py-1.5 rounded border">Ekspor Produk (.json)</button>
+            <div>
+              <input id="import-products-input" type="file" accept="application/json" class="hidden" @change="importProductsJSON" />
+              <button @click="() => document.getElementById('import-products-input').click()" class="px-3 py-1.5 rounded border">Impor Produk (.json)</button>
+            </div>
+            <button @click="backupProductsToSheet" class="px-3 py-1.5 rounded bg-indigo-600 text-white disabled:opacity-50" :disabled="!gsWebAppUrl || !gsSheetId">Backup Produk ke Sheet</button>
+            <button @click="restoreProductsFromSheetUI" class="px-3 py-1.5 rounded bg-fuchsia-600 text-white disabled:opacity-50" :disabled="!gsWebAppUrl || !gsSheetId">Restore Produk dari Sheet</button>
+          </div>
           <div class="grid grid-cols-1 sm:grid-cols-6 gap-2">
             <input v-model="newProduct.name" placeholder="Nama produk" class="sm:col-span-2 border rounded px-3 py-2" />
             <input v-model.number="newProduct.price" type="number" min="0" step="100" placeholder="Harga (Rp)" class="sm:col-span-2 border rounded px-3 py-2" />
@@ -975,6 +984,72 @@
           function editProduct(p){ Object.assign(newProduct, p); }
           async function deleteProduct(id){ await db.products.delete(id); await loadProducts(); }
 
+          // ===== Backup/Restore Products =====
+          function serializeProduct(p){
+            return { id: p.id ?? null, name: p.name||'', price: Number(p.price)||0, barcode: p.barcode||'' };
+          }
+          async function exportProductsJSON(){
+            try{
+              const list = await db.products.toArray();
+              const data = list.map(serializeProduct);
+              const blob = new Blob([JSON.stringify({ _type:'products', version:1, items:data }, null, 2)], { type:'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url; const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+              a.download = `produk-${ts}.json`;
+              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              backupStatus.value = 'Ekspor produk selesai'; backupStatusOk.value = true;
+            } catch(e){ backupStatus.value = 'Gagal ekspor produk: ' + (e?.message||''); backupStatusOk.value=false; }
+          }
+          async function importProductsJSON(ev){
+            try{
+              const file = ev?.target?.files?.[0]; if (!file) return;
+              const text = await file.text();
+              const obj = JSON.parse(text);
+              const items = Array.isArray(obj?.items) ? obj.items : (Array.isArray(obj) ? obj : []);
+              if (!items.length) throw new Error('File kosong');
+              const doReplace = confirm('Impor produk? OK=Replace semua, Cancel=Merge');
+              if (doReplace) {
+                await db.products.clear();
+              }
+              // Use bulkPut to insert/overwrite by id if available
+              const toPut = items.map(x => ({ id: x.id, name: String(x.name||''), price: Number(x.price)||0, barcode: String(x.barcode||'') }));
+              await db.products.bulkPut(toPut);
+              await loadProducts();
+              backupStatus.value = 'Impor produk selesai'; backupStatusOk.value = true;
+            } catch(e){ backupStatus.value = 'Gagal impor produk: ' + (e?.message||''); backupStatusOk.value=false; }
+            finally { try { ev.target.value = ''; } catch {} }
+          }
+          async function backupProductsToSheet(){
+            try{
+              const list = await db.products.toArray();
+              const rows = list.map(serializeProduct);
+              if (!rows.length) { backupStatus.value = 'Tidak ada produk untuk backup'; backupStatusOk.value=true; return; }
+              const payload = { action:'products_put', sheetId: gsSheetId.value, sheetName: 'Products', format: gsUseColumns.value ? 'columns' : 'json', rows };
+              const resp = await appsScriptCall(payload);
+              if (resp?.ok) { backupStatus.value = `Backup produk sukses: ${resp.inserted ?? rows.length}`; backupStatusOk.value=true; }
+              else { throw new Error('Respon gagal'); }
+            } catch(e){ backupStatus.value = 'Backup produk gagal: ' + (e?.message||''); backupStatusOk.value=false; }
+          }
+          async function restoreProductsFromSheet(replace=false){
+            try{
+              const payload = { action:'products_list', sheetId: gsSheetId.value, sheetName: 'Products', format: gsUseColumns.value ? 'columns' : 'json' };
+              const resp = await appsScriptCall(payload);
+              const items = Array.isArray(resp?.rows) ? resp.rows : [];
+              if (!items.length) { backupStatus.value = 'Tidak ada produk di Sheet'; backupStatusOk.value=false; return; }
+              if (replace) await db.products.clear();
+              const toPut = items.map(x => ({ id: x.id, name: String(x.name||''), price: Number(x.price)||0, barcode: String(x.barcode||'') }));
+              await db.products.bulkPut(toPut);
+              await loadProducts();
+              backupStatus.value = `Restore produk selesai: ${toPut.length}`; backupStatusOk.value=true;
+            } catch(e){ backupStatus.value = 'Restore produk gagal: ' + (e?.message||''); backupStatusOk.value=false; }
+          }
+          async function restoreProductsFromSheetUI(){
+            const doReplace = confirm('Restore produk dari Sheet? OK=Replace semua, Cancel=Merge');
+            await restoreProductsFromSheet(!!doReplace);
+          }
+
           // Scanner
           let codeReader = null;
           let mediaStream = null;
@@ -1357,6 +1432,8 @@
             shareReceiptWA,
             loadProducts, saveProduct, editProduct, deleteProduct,
             addProductToCart,
+            exportProductsJSON, importProductsJSON,
+            backupProductsToSheet, restoreProductsFromSheetUI,
             resetHistoryFilters, exportHistoryCSV,
             openScanner, closeScanner,
             backupAllToSheet, restoreFromSheetUI,

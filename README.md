@@ -163,6 +163,54 @@ function doPost(e) {
       return json({ ok:false, error:'format tidak dikenal' });
     }
 
+    // ---- Products backup ----
+    if (action === 'products_put') {
+      const tab = body.sheetName || 'Products';
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (!rows.length) return json({ ok:true, inserted:0 });
+      const shP = ss.getSheetByName(tab) || ss.insertSheet(tab);
+      const fmt = String(body.format||'json').toLowerCase();
+      if (fmt === 'json') {
+        const values = rows.map(r => [new Date(), JSON.stringify(r)]);
+        if (getHeaders(shP).length === 0) shP.getRange(1,1,1,2).setValues([['time','json']]);
+        shP.getRange(shP.getLastRow()+1, 1, values.length, 2).setValues(values);
+        return json({ ok:true, inserted: values.length });
+      }
+      const HEADERS_P = ['id','name','price','barcode','updatedAt'];
+      ensureHeader(shP, HEADERS_P);
+      const values = rows.map(p => [Number(p.id)||'', String(p.name||''), Number(p.price)||0, String(p.barcode||''), new Date()]);
+      shP.getRange(shP.getLastRow()+1, 1, values.length, HEADERS_P.length).setValues(values);
+      return json({ ok:true, inserted: values.length });
+    }
+
+    if (action === 'products_list') {
+      const tab = body.sheetName || 'Products';
+      const shP = ss.getSheetByName(tab) || ss.insertSheet(tab);
+      const last = shP.getLastRow();
+      if (last < 1) return json({ ok:true, rows: [] });
+      const fmt = String(body.format||'json').toLowerCase();
+      if (fmt === 'json') {
+        const data = shP.getRange(1, 2, last, 1).getValues().map(r => { try { return JSON.parse(r[0]); } catch { return null; } }).filter(Boolean);
+        return json({ ok:true, rows: data });
+      }
+      const HEADERS_P = getHeaders(shP);
+      if (!HEADERS_P.length) return json({ ok:true, rows: [] });
+      const data = shP.getRange(2, 1, Math.max(0, last-1), HEADERS_P.length).getValues();
+      const idx = {
+        id: HEADERS_P.indexOf('id'),
+        name: HEADERS_P.indexOf('name'),
+        price: HEADERS_P.indexOf('price'),
+        barcode: HEADERS_P.indexOf('barcode'),
+      };
+      const rows = data.map(r => ({
+        id: toNum(idx.id>=0 ? r[idx.id] : 0),
+        name: String(idx.name>=0 ? r[idx.name] : ''),
+        price: toNum(idx.price>=0 ? r[idx.price] : 0),
+        barcode: String(idx.barcode>=0 ? r[idx.barcode] : ''),
+      }));
+      return json({ ok:true, rows });
+    }
+
     // ---- Settings backup ----
     if (action === 'settings_put') {
       const cfgSheet = body.sheetName || 'Config';
@@ -264,6 +312,12 @@ function json(obj) {
   - OK = Replace: hapus transaksi lokal lalu impor semua dari Sheet.
   - Cancel = Merge: tambah transaksi yang ID-nya belum ada.
 - Auto backup: aktifkan di Pengaturan agar setiap transaksi setelah “Bayar” dikirim otomatis.
+
+### Master Produk (Backup/Restore)
+- Ekspor/Impor Produk (.json): tombol ada di tab Master Produk. Ekspor menghasilkan berkas JSON berisi array produk `{id,name,price,barcode}`. Impor akan menanyakan Replace (hapus semua) atau Merge.
+- Backup/Restore Produk ke Sheet: gunakan tombol “Backup Produk ke Sheet” dan “Restore Produk dari Sheet” (sheet/tab `Products`).
+  - JSON mode: menyimpan tiap produk sebagai JSON satu kolom (bersama timestamp).
+  - Per-kolom mode: menyimpan header dan kolom `id | name | price | barcode | updatedAt`.
 
 ### Troubleshooting
 - Tombol backup/restore nonaktif: isi `Web App URL` dan `Spreadsheet ID` di Pengaturan, lalu Simpan.
