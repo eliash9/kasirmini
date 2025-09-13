@@ -40,6 +40,13 @@ Klik tombol "Pengaturan" (ikon gear) di header. Simpan:
 - Telepon
 - QRIS Payload Dasar (tanpa nominal; nominal dan CRC dihitung otomatis saat pembayaran)
 
+### Backup/Restore Pengaturan (Lokal)
+- Ekspor Pengaturan (.json / .txt): unduh berkas yang berisi seluruh pengaturan aplikasi (yang tersimpan lokal). Simpan file ini sebagai cadangan.
+- Impor Pengaturan (.json / .txt): muat berkas cadangan untuk menerapkan pengaturan secara instan.
+- First-run restore: saat pertama kali membuka aplikasi (belum ada pengaturan di perangkat), akan muncul banner untuk mengimpor file pengaturan sehingga Anda tidak perlu mengetik pengaturan lagi.
+
+Format berkas adalah JSON yang berisi: `storeName`, `storeAddress`, `storePhone`, `qrisBase`, `gsWebAppUrl`, `gsSheetId`, `gsSheetName`, `gsSecret`, `gsUseColumns`, `autoBackup`, serta metadata `_ts`, `_ver`.
+
 ### Pengaturan Google Sheets (Backup/Restore)
 - Apps Script Web App URL: URL deployment Web App (akhiran `/exec`).
 - Spreadsheet ID: ID dokumen Google Sheet (bagian di URL antara `/d/` dan `/edit`).
@@ -86,7 +93,7 @@ Fitur ini menggunakan Google Apps Script Web App sebagai endpoint sederhana, tan
 4. Deploy → New deployment → Web app → Execute as “Me”, Access “Anyone” → Deploy.
 5. Salin Web App URL (akhiran `/exec`) dan isi ke Pengaturan aplikasi.
 
-`Code.gs` (mendukung JSON/per-kolom + secret):
+`Code.gs` (mendukung JSON/per-kolom + secret + backup pengaturan):
 
 ```
 function doPost(e) {
@@ -154,6 +161,49 @@ function doPost(e) {
       }
 
       return json({ ok:false, error:'format tidak dikenal' });
+    }
+
+    // ---- Settings backup ----
+    if (action === 'settings_put') {
+      const cfgSheet = body.sheetName || 'Config';
+      const name = body.name || 'default';
+      const settings = body.settings || {};
+      const shCfg = ss.getSheetByName(cfgSheet) || ss.insertSheet(cfgSheet);
+      // Header: name | json | updatedAt
+      const headers = getHeaders(shCfg);
+      if (!headers.length) shCfg.getRange(1,1,1,3).setValues([['name','json','updatedAt']]);
+      const last = shCfg.getLastRow();
+      // search by name
+      let rowIndex = -1;
+      if (last > 1) {
+        const names = shCfg.getRange(2,1,last-1,1).getValues().map(r => String(r[0]||''));
+        rowIndex = names.findIndex(v => v === name);
+        if (rowIndex !== -1) rowIndex = rowIndex + 2; // offset header
+      }
+      const payload = [name, JSON.stringify(settings), new Date()];
+      if (rowIndex === -1) {
+        shCfg.getRange(shCfg.getLastRow()+1, 1, 1, 3).setValues([payload]);
+      } else {
+        shCfg.getRange(rowIndex, 1, 1, 3).setValues([payload]);
+      }
+      return json({ ok:true });
+    }
+
+    if (action === 'settings_get') {
+      const cfgSheet = body.sheetName || 'Config';
+      const name = body.name || 'default';
+      const shCfg = ss.getSheetByName(cfgSheet) || ss.insertSheet(cfgSheet);
+      const last = shCfg.getLastRow();
+      if (last < 2) return json({ ok:true, settings: {} });
+      const data = shCfg.getRange(2,1,last-1,3).getValues();
+      for (let i=0;i<data.length;i++){
+        const row = data[i];
+        if (String(row[0]||'') === name) {
+          try { return json({ ok:true, settings: JSON.parse(row[1]||'{}') }); }
+          catch { return json({ ok:false, error:'json settings rusak' }); }
+        }
+      }
+      return json({ ok:true, settings: {} });
     }
 
     return json({ ok:false, error:'action tidak dikenal' });

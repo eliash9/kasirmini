@@ -57,6 +57,17 @@
             </button>
           </div>
         </div>
+        <!-- First-run settings restore prompt -->
+        <div v-if="showFirstRunImport" class="mx-auto max-w-3xl px-4 pb-3">
+          <div class="mt-2 rounded-lg bg-amber-100 text-amber-900 p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div class="text-sm">Pertama kali pakai? Impor file pengaturan agar tidak perlu isi manual.</div>
+            <div class="flex gap-2">
+              <button @click="openImportSettingsPicker" class="px-3 py-1.5 rounded bg-amber-600 text-white">Impor Pengaturan (.json/.txt)</button>
+              <button @click="showSettings=true" class="px-3 py-1.5 rounded bg-white text-amber-900">Isi Manual</button>
+              <button @click="showFirstRunImport=false" class="px-3 py-1.5 rounded bg-amber-200 text-amber-900">Nanti</button>
+            </div>
+          </div>
+        </div>
       </header>
 
       <!-- Main -->
@@ -452,6 +463,12 @@
               <button @click="saveSettings(); showSettings=false" class="px-3 py-2 rounded bg-indigo-600 text-white">Simpan</button>
             </div>
             <div v-if="testStatus" class="mt-2 text-xs" :class="testOk ? 'text-emerald-700' : 'text-rose-700'">{{ testStatus }}</div>
+
+            <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+             
+              <button @click="exportSettingsFileTxt" class="px-3 py-2 rounded border">Ekspor Pengaturan (.txt)</button>
+             
+            </div>
           </div>
         </div>
       </div>
@@ -590,6 +607,7 @@
           const paymentMethod = ref('cash'); // 'cash' | 'qris' | 'other'
           const showReceiptModal = ref(false);
           const showSettings = ref(false);
+          const showFirstRunImport = ref(false);
           const storeName = ref('Kasir Mini');
           const storeAddress = ref('Jl. Contoh No. 123');
           const storePhone = ref('0800-000-000');
@@ -615,7 +633,7 @@
           function loadSettings(){
             try {
               const raw = localStorage.getItem(SETTINGS_KEY);
-              if (!raw) return;
+              if (!raw) return false;
               const s = JSON.parse(raw);
               if (s.storeName) storeName.value = s.storeName;
               if (s.storeAddress) storeAddress.value = s.storeAddress;
@@ -627,7 +645,8 @@
               if (s.gsSecret) gsSecret.value = s.gsSecret;
               if (typeof s.gsUseColumns === 'boolean') gsUseColumns.value = s.gsUseColumns;
               if (typeof s.autoBackup === 'boolean') autoBackup.value = s.autoBackup;
-            } catch {}
+              return true;
+            } catch { return false; }
           }
           function saveSettings(){
             const s = {
@@ -643,6 +662,120 @@
               autoBackup: autoBackup.value,
             };
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+          }
+          function getSettingsObject(){
+            return {
+              storeName: storeName.value,
+              storeAddress: storeAddress.value,
+              storePhone: storePhone.value,
+              qrisBase: qrisBase.value,
+              gsWebAppUrl: gsWebAppUrl.value,
+              gsSheetId: gsSheetId.value,
+              gsSheetName: gsSheetName.value,
+              gsSecret: gsSecret.value,
+              gsUseColumns: gsUseColumns.value,
+              autoBackup: autoBackup.value,
+              _ts: new Date().toISOString(),
+              _ver: '1',
+            };
+          }
+          function applySettingsObject(obj){
+            if (!obj || typeof obj !== 'object') return;
+            if (obj.storeName !== undefined) storeName.value = obj.storeName;
+            if (obj.storeAddress !== undefined) storeAddress.value = obj.storeAddress;
+            if (obj.storePhone !== undefined) storePhone.value = obj.storePhone;
+            if (obj.qrisBase !== undefined) qrisBase.value = obj.qrisBase;
+            if (obj.gsWebAppUrl !== undefined) gsWebAppUrl.value = obj.gsWebAppUrl;
+            if (obj.gsSheetId !== undefined) gsSheetId.value = obj.gsSheetId;
+            if (obj.gsSheetName !== undefined) gsSheetName.value = obj.gsSheetName;
+            if (obj.gsSecret !== undefined) gsSecret.value = obj.gsSecret;
+            if (obj.gsUseColumns !== undefined) gsUseColumns.value = !!obj.gsUseColumns;
+            if (obj.autoBackup !== undefined) autoBackup.value = !!obj.autoBackup;
+            saveSettings();
+          }
+
+          // Export/Import settings via file
+          function exportSettingsFile(){
+            try{
+              const obj = getSettingsObject();
+              const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+              a.download = `kasirmini-settings-${ts}.json`;
+              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              testStatus.value = 'Pengaturan diekspor'; testOk.value = true;
+            } catch(e){ testStatus.value = 'Gagal ekspor: ' + (e?.message||''); testOk.value=false; }
+          }
+          function exportSettingsFileTxt(){
+            try{
+              const obj = getSettingsObject();
+              const blob = new Blob([JSON.stringify(obj)], { type: 'text/plain' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+              a.download = `kasirmini-settings-${ts}.txt`;
+              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              testStatus.value = 'Pengaturan diekspor (.txt)'; testOk.value = true;
+            } catch(e){ testStatus.value = 'Gagal ekspor txt: ' + (e?.message||''); testOk.value=false; }
+          }
+          async function importSettingsFile(ev){
+            try{
+              const file = ev?.target?.files?.[0]; if (!file) return;
+              await importSettingsFromFile(file);
+              testStatus.value = 'Pengaturan diimpor'; testOk.value = true;
+            } catch(e){ testStatus.value = 'Gagal impor: ' + (e?.message||''); testOk.value = false; }
+            finally { try { ev.target.value = ''; } catch {} }
+          }
+          async function importSettingsFromFile(file){
+            const text = await file.text();
+            let obj = null;
+            try { obj = JSON.parse(text); }
+            catch { throw new Error('Format file tidak valid, harap JSON'); }
+            applySettingsObject(obj);
+            showFirstRunImport.value = false;
+          }
+
+          function openImportSettingsPicker(){
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json,text/plain';
+            input.onchange = async (e) => {
+              try{
+                const file = e.target.files && e.target.files[0]; if (!file) return;
+                await importSettingsFromFile(file);
+                alert('Pengaturan berhasil diimpor.');
+              } catch(err){ alert('Gagal impor: ' + (err?.message||'')); }
+            };
+            document.body.appendChild(input);
+            input.click();
+            setTimeout(() => { try { document.body.removeChild(input); } catch {} }, 0);
+          }
+
+          // Backup/Restore settings via Apps Script
+          async function backupSettingsToSheet(){
+            try{
+              if (!gsWebAppUrl.value || !gsSheetId.value) throw new Error('Isi URL & Spreadsheet ID');
+              const payload = { action:'settings_put', sheetId: gsSheetId.value, sheetName: 'Config', name: 'default', settings: getSettingsObject() };
+              const resp = await appsScriptCall(payload);
+              if (resp?.ok) { testStatus.value = 'Backup pengaturan sukses'; testOk.value = true; }
+              else { throw new Error('Respon gagal'); }
+            } catch(e){ testStatus.value = 'Gagal backup pengaturan: ' + (e?.message||''); testOk.value = false; }
+          }
+          async function restoreSettingsFromSheet(){
+            try{
+              if (!gsWebAppUrl.value || !gsSheetId.value) throw new Error('Isi URL & Spreadsheet ID');
+              const payload = { action:'settings_get', sheetId: gsSheetId.value, sheetName: 'Config', name: 'default' };
+              const resp = await appsScriptCall(payload);
+              const s = resp?.settings;
+              if (!s || typeof s !== 'object') throw new Error('Tidak menemukan pengaturan di Sheet');
+              applySettingsObject(s);
+              testStatus.value = 'Restore pengaturan sukses'; testOk.value = true;
+            } catch(e){ testStatus.value = 'Gagal restore pengaturan: ' + (e?.message||''); testOk.value = false; }
           }
 
           // QRIS helpers and computed payload
@@ -1186,7 +1319,8 @@
           onMounted(async () => {
             await loadHistory();
             await loadProducts();
-            loadSettings();
+            const hadSettings = loadSettings();
+            if (!hadSettings) showFirstRunImport.value = true;
             // Register service worker for offline
             if ('serviceWorker' in navigator) {
               try { await navigator.serviceWorker.register('./sw.js', { scope: './' }); } catch (e) { console.warn('SW register failed', e); }
@@ -1200,13 +1334,14 @@
             activeTab, showPayment, paymentMethod, cash, change, otherNote,
             history, historyQuery, historyMethod, filterStart, filterEnd,
             lastReceipt, showReceiptModal,
-            showSettings, storeName, storeAddress, storePhone,
+            showSettings, showFirstRunImport, storeName, storeAddress, storePhone,
             products, newProduct, productQuery, filteredProducts,
             showScanner, scanError,
             qrisBase,
             gsWebAppUrl, gsSheetId, gsSheetName, gsSecret, gsUseColumns, autoBackup,
             backupStatus, backupStatusOk,
             testStatus, testOk, testBusy, testGsConnection,
+            exportSettingsFileTxt, openImportSettingsPicker,
 
             // computed
             hasPrintableReceipt, currentReceipt, filteredHistory, historySummary,
