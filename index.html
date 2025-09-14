@@ -252,14 +252,33 @@
       <div v-if="activeTab==='products'" class="space-y-4">
         <section class="bg-white rounded-2xl shadow p-4">
           <h2 class="font-semibold mb-3">Master Produk</h2>
-          <div class="flex flex-wrap gap-2 mb-3">
-            <button @click="exportProductsJSON" class="px-3 py-1.5 rounded border">Ekspor Produk (.json)</button>
-            <div>
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            <!-- Export JSON -->
+            <button @click="exportProductsJSON" class="inline-flex items-center gap-2 rounded border px-2 py-2 sm:px-3 sm:py-1.5" aria-label="Ekspor Produk (.json)">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 14a2 2 0 002 2h10a2 2 0 002-2v-1a1 1 0 112 0v1a4 4 0 01-4 4H5a4 4 0 01-4-4v-1a1 1 0 112 0v1z"/><path d="M7 8a1 1 0 112 0v3.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3A1 1 0 015.707 10.293L7 11.586V8z"/></svg>
+              <span class="hidden sm:inline">Ekspor (.json)</span>
+            </button>
+
+            <!-- Import JSON -->
+            <div class="inline-flex">
               <input id="import-products-input" type="file" accept="application/json" class="hidden" @change="importProductsJSON" />
-              <button @click="() => document.getElementById('import-products-input').click()" class="px-3 py-1.5 rounded border">Impor Produk (.json)</button>
+              <button @click="() => document.getElementById('import-products-input').click()" class="inline-flex items-center gap-2 rounded border px-2 py-2 sm:px-3 sm:py-1.5" aria-label="Impor Produk (.json)">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 6a2 2 0 012-2h10a2 2 0 012 2v1a1 1 0 102 0V6a4 4 0 00-4-4H5a4 4 0 00-4 4v1a1 1 0 102 0V6z"/><path d="M13 12a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 10-1.414-1.414L13 15.586V12z"/></svg>
+                <span class="hidden sm:inline">Impor (.json)</span>
+              </button>
             </div>
-            <button @click="backupProductsToSheet" class="px-3 py-1.5 rounded bg-indigo-600 text-white disabled:opacity-50" :disabled="!gsWebAppUrl || !gsSheetId">Backup Produk ke Sheet</button>
-            <button @click="restoreProductsFromSheetUI" class="px-3 py-1.5 rounded bg-fuchsia-600 text-white disabled:opacity-50" :disabled="!gsWebAppUrl || !gsSheetId">Restore Produk dari Sheet</button>
+
+            <!-- Backup to Sheet -->
+            <button @click="backupProductsToSheet" class="inline-flex items-center gap-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-2 sm:px-3 sm:py-1.5 disabled:opacity-50" :disabled="!gsWebAppUrl || !gsSheetId" aria-label="Backup Produk ke Sheet">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 15a4 4 0 004 4h6a4 4 0 001.106-7.859 3 3 0 00-5.57-1.286A3.5 3.5 0 003.5 13H3a2 2 0 000 4h1a1 1 0 100-2H3a0 0 0 010-2z"/><path d="M10 6a1 1 0 011 1v3.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3A1 1 0 016.707 9.293L8 10.586V7a1 1 0 011-1z"/></svg>
+              <span class="hidden sm:inline">Backup Sheet</span>
+            </button>
+
+            <!-- Restore from Sheet -->
+            <button @click="restoreProductsFromSheetUI" class="inline-flex items-center gap-2 rounded bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-2 py-2 sm:px-3 sm:py-1.5 disabled:opacity-50" :disabled="!gsWebAppUrl || !gsSheetId" aria-label="Restore Produk dari Sheet">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 15a4 4 0 004 4h6a4 4 0 001.106-7.859 3 3 0 00-5.57-1.286A3.5 3.5 0 003.5 13H3a2 2 0 000 4h1a1 1 0 100-2H3a0 0 0 010-2z"/><path d="M11 14a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 10-1.414-1.414L11 17.586V14z"/></svg>
+              <span class="hidden sm:inline">Restore Sheet</span>
+            </button>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-6 gap-2">
             <input v-model="newProduct.name" placeholder="Nama produk" class="sm:col-span-2 border rounded px-3 py-2" />
@@ -277,8 +296,19 @@
                 <div class="text-xs text-gray-500">{{ formatIDR(p.price) }} • {{ p.barcode || '—' }}</div>
               </div>
               <div class="flex gap-2">
-                <button class="px-2 py-1 rounded border" @click="editProduct(p)">Edit</button>
-                <button class="px-2 py-1 rounded border text-red-600" @click="deleteProduct(p.id)">Hapus</button>
+                <button @click="editProduct(p)" class="inline-flex items-center gap-2 rounded border px-2 py-2 sm:px-2 sm:py-1" aria-label="Edit">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.486 8.486A2 2 0 016.5 16H4a1 1 0 01-1-1v-2.5a2 2 0 01.586-1.414l8.486-8.486z"/>
+                    <path d="M12 5l3 3"/>
+                  </svg>
+                  <span class="hidden sm:inline">Edit</span>
+                </button>
+                <button @click="deleteProduct(p.id)" class="inline-flex items-center gap-2 rounded border text-red-600 hover:bg-red-50 px-2 py-2 sm:px-2 sm:py-1" aria-label="Hapus">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M6 7a1 1 0 011 1v7a1 1 0 11-2 0V8a1 1 0 011-1zm4 0a1 1 0 011 1v7a1 1 0 11-2 0V8a1 1 0 011-1zm4-3h-3.5l-.71-.71A1 1 0 009.59 3H6a1 1 0 000 2H4a1 1 0 100 2h12a1 1 0 100-2h-2zM6 18a2 2 0 002 2h4a2 2 0 002-2V8H6v10z"/>
+                  </svg>
+                  <span class="hidden sm:inline">Hapus</span>
+                </button>
               </div>
             </div>
             <div v-if="products.length===0" class="text-xs text-gray-500">Belum ada produk.</div>
@@ -299,6 +329,15 @@
               <div class="flex items-center justify-between">
                 <div>Total</div>
                 <div class="font-semibold tabular-nums">{{ formatIDR(total) }}</div>
+              </div>
+
+              <!-- Payment status selector -->
+              <div>
+                <div class="text-sm text-gray-500 mb-1">Status Pembayaran</div>
+                <div class="grid grid-cols-2 gap-2">
+                  <button @click="paymentStatus='lunas'" :class="paymentStatus==='lunas' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded">Lunas</button>
+                  <button @click="paymentStatus='tagihan'" :class="paymentStatus==='tagihan' ? 'bg-amber-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded">Tagihan</button>
+                </div>
               </div>
 
               <!-- Payment method selector -->
@@ -352,8 +391,14 @@
                 <textarea id="other-note" v-model="otherNote" rows="2" class="w-full border rounded px-3 py-2" placeholder="Misal: debit BCA, transfer, dsb."></textarea>
               </div>
 
+              <!-- Invoice note when tagihan -->
+              <div v-if="paymentStatus==='tagihan'" class="space-y-2">
+                <label class="text-sm text-gray-500" for="invoice-note">Catatan Tagihan (opsional)</label>
+                <textarea id="invoice-note" v-model="invoiceNote" rows="2" class="w-full border rounded px-3 py-2" placeholder="Misal: Jatuh tempo, nama pemesan, dsb."></textarea>
+              </div>
+
               <button class="w-full mt-2 px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
-                :disabled="total===0 || (paymentMethod==='cash' && cash < total)"
+                :disabled="total===0 || (paymentStatus==='lunas' && paymentMethod==='cash' && cash < total)"
                 @click="confirmPayment">Konfirmasi Bayar</button>
             </div>
           </div>
@@ -402,9 +447,16 @@
                 <div class="text-xs flex justify-between"><span>Pajak {{ (currentReceipt.taxPct||0) }}%</span><span class="tabular-nums">{{ formatIDR(currentReceipt.taxAmount || 0) }}</span></div>
                 <div class="text-xs flex justify-between font-semibold"><span>Total</span><span class="tabular-nums">{{ formatIDR(currentReceipt.total || 0) }}</span></div>
                 <div class="text-xs flex justify-between"><span>Metode</span><span>{{ paymentLabel(currentReceipt.paymentMethod) }}</span></div>
+                <div class="text-xs flex justify-between"><span>Status</span><span>{{ (currentReceipt.paymentStatus||'lunas')==='tagihan' ? 'Tagihan' : 'Lunas' }}</span></div>
                 <div v-if="currentReceipt.paymentNote" class="text-xs flex justify-between"><span>Catatan</span><span>{{ currentReceipt.paymentNote }}</span></div>
                 <div class="text-xs flex justify-between"><span>Bayar</span><span class="tabular-nums">{{ formatIDR(currentReceipt.paid || 0) }}</span></div>
                 <div class="text-xs flex justify-between"><span>Kembali</span><span class="tabular-nums">{{ formatIDR(currentReceipt.change || 0) }}</span></div>
+
+                <div v-if="(currentReceipt.paymentStatus||'')==='tagihan'" class="my-2 text-center">
+                  <div class="text-xs mb-1">Scan QRIS untuk bayar</div>
+                  <canvas id="receipt-qris-canvas" width="140" height="140" class="mx-auto block"></canvas>
+                  <img id="receipt-qris-img" class="hidden mx-auto w-[140px] h-[140px]" alt="QRIS" />
+                </div>
 
                 <div class="my-2 border-t border-dashed"></div>
                 <div class="text-center text-xs">Terima kasih</div>
@@ -622,6 +674,7 @@
           const activeTab = ref('pos');
           const showPayment = ref(false);
           const paymentMethod = ref('cash'); // 'cash' | 'qris' | 'other'
+          const paymentStatus = ref('lunas'); // 'lunas' | 'tagihan'
           const showReceiptModal = ref(false);
           const showSettings = ref(false);
           const showFirstRunImport = ref(false);
@@ -631,6 +684,7 @@
           const cash = ref(0);
           const change = computed(() => paymentMethod.value==='cash' ? Math.max(0, (Number(cash.value)||0) - total.value) : 0);
           const otherNote = ref('');
+          const invoiceNote = ref('');
           const qrisBase = ref('00020101021126570011ID.DANA.WWW011893600915323576397902092357639790303UMI51440014ID.CO.QRIS.WWW0215ID10221538453370303UMI5204504553033605802ID5908EL-M.net6013Kab. Pasuruan6105671516304280A');
 
           // Google Sheets backup settings
@@ -873,6 +927,46 @@
             }
           }, { immediate: false });
 
+          // Render QRIS on receipt when status is tagihan
+          function makeQrisAmountPayload(amount){
+            try {
+              const baseNoCRC = stripCRC((qrisBase.value||'').trim());
+              const withAmount = insertAmount(baseNoCRC, Number(amount)||0);
+              const toCRC = withAmount + '6304';
+              const crc = crc16ccitt(toCRC);
+              return withAmount + '6304' + crc;
+            } catch (e){ return (qrisBase.value||''); }
+          }
+          async function renderReceiptQRIS(){
+            await nextTick();
+            const canvas = document.getElementById('receipt-qris-canvas');
+            const img = document.getElementById('receipt-qris-img');
+            if (!canvas || !img) return;
+            const r = currentReceipt.value || {};
+            const data = makeQrisAmountPayload(r.total || 0);
+            if (window.QRCode) {
+              try {
+                await window.QRCode.toCanvas(canvas, data, { width: 140, margin: 1 });
+                canvas.classList.remove('hidden');
+                img.classList.add('hidden');
+              } catch (e) {
+                img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(data);
+                img.classList.remove('hidden');
+                canvas.classList.add('hidden');
+              }
+            } else {
+              img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(data);
+              img.classList.remove('hidden');
+              canvas.classList.add('hidden');
+            }
+          }
+          watch([showReceiptModal, qrisBase], async () => {
+            const r = (currentReceipt && currentReceipt.value) ? currentReceipt.value : {};
+            if (showReceiptModal.value && ((r.paymentStatus||'') === 'tagihan')) {
+              await renderReceiptQRIS();
+            }
+          }, { immediate: false });
+
           const history = ref([]);
           const historyQuery = ref('');
           const historyMethod = ref('');
@@ -906,9 +1000,10 @@
                 taxAmount: taxAmount.value,
                 total: total.value,
                 paymentMethod: paymentMethod.value,
-                paymentNote: paymentMethod.value==='other' ? (otherNote.value||'') : '',
-                paid: Number(cash.value)||0,
-                change: change.value,
+                paymentStatus: paymentStatus.value,
+                paymentNote: paymentStatus.value==='tagihan' ? (invoiceNote.value||'') : (paymentMethod.value==='other' ? (otherNote.value||'') : ''),
+                paid: paymentStatus.value==='tagihan' ? 0 : (Number(cash.value)||0),
+                change: paymentStatus.value==='tagihan' ? 0 : change.value,
               };
             }
             return lastReceipt.value || { items: [], total: 0 };
@@ -934,10 +1029,10 @@
             if (idx >= 0) cart.value[idx].qty += 1; else cart.value.push({ name: p.name, price: Number(p.price)||0, qty: 1 });
           }
 
-          function openPayment(){ showPayment.value = true; if (paymentMethod.value==='cash') cash.value = total.value; }
+          function openPayment(){ showPayment.value = true; /* Default cash remains 0 */ }
 
           async function confirmPayment(){
-            if (paymentMethod.value === 'cash' && cash.value < total.value) return;
+            if (paymentStatus.value === 'lunas' && paymentMethod.value === 'cash' && cash.value < total.value) return;
             const tx = {
               date: new Date().toISOString(),
               items: cart.value.map(i => ({ name: i.name, price: Number(i.price)||0, qty: Number(i.qty)||0 })),
@@ -948,9 +1043,10 @@
               taxAmount: taxAmount.value,
               total: total.value,
               paymentMethod: paymentMethod.value,
-              paymentNote: paymentMethod.value==='other' ? (otherNote.value||'') : '',
-              paid: paymentMethod.value==='cash' ? (Number(cash.value)||0) : total.value,
-              change: paymentMethod.value==='cash' ? change.value : 0,
+              paymentStatus: paymentStatus.value,
+              paymentNote: paymentStatus.value==='tagihan' ? (invoiceNote.value||'') : (paymentMethod.value==='other' ? (otherNote.value||'') : ''),
+              paid: paymentStatus.value==='tagihan' ? 0 : (paymentMethod.value==='cash' ? (Number(cash.value)||0) : total.value),
+              change: paymentStatus.value==='tagihan' ? 0 : (paymentMethod.value==='cash' ? change.value : 0),
             };
             const id = await idbTx.add(tx);
             tx.id = id;
@@ -962,6 +1058,7 @@
             showReceiptModal.value = true; // auto show receipt
             // reset transient fields
             otherNote.value = '';
+            invoiceNote.value = '';
             if (paymentMethod.value !== 'cash') cash.value = 0;
 
             // Optional auto backup single transaction
@@ -1214,6 +1311,7 @@
               taxAmount: Number(tx.taxAmount)||0,
               total: Number(tx.total)||0,
               paymentMethod: tx.paymentMethod || '',
+              paymentStatus: tx.paymentStatus || '',
               paymentNote: tx.paymentNote || '',
               paid: Number(tx.paid)||0,
               change: Number(tx.change)||0,
@@ -1295,6 +1393,7 @@
                 taxAmount: Number(r.taxAmount)||0,
                 total: Number(r.total)||0,
                 paymentMethod: r.paymentMethod || '',
+                paymentStatus: r.paymentStatus || '',
                 paymentNote: r.paymentNote || '',
                 paid: Number(r.paid)||0,
                 change: Number(r.change)||0,
@@ -1337,6 +1436,8 @@
           async function printReceipt(){
             if (!hasPrintableReceipt.value) return;
             if (!showReceiptModal.value) { showReceiptModal.value = true; await nextTick(); }
+            const r = (currentReceipt && currentReceipt.value) ? currentReceipt.value : {};
+            if (((r.paymentStatus||''))==='tagihan') { await renderReceiptQRIS(); }
             window.print();
           }
 
@@ -1358,6 +1459,7 @@
             if ((r.taxAmount||0) > 0) L.push(`Pajak ${r.taxPct||0}%: ` + formatIDR(r.taxAmount||0));
             L.push('Total: ' + formatIDR(r.total||0));
             if (r.paymentMethod) L.push('Metode: ' + paymentLabel(r.paymentMethod));
+            if (r.paymentStatus) L.push('Status: ' + ((r.paymentStatus||'lunas')==='tagihan' ? 'Tagihan' : 'Lunas'));
             if (r.paymentNote) L.push('Catatan: ' + r.paymentNote);
             L.push('Bayar: ' + formatIDR(r.paid||0));
             L.push('Kembali: ' + formatIDR(r.change||0));
@@ -1419,7 +1521,7 @@
             // state
             newItem, cart, discountPct, taxPct,
             subtotal, discountAmount, taxable, taxAmount, total,
-            activeTab, showPayment, paymentMethod, cash, change, otherNote,
+            activeTab, showPayment, paymentMethod, paymentStatus, cash, change, otherNote, invoiceNote,
             history, historyQuery, historyMethod, filterStart, filterEnd,
             lastReceipt, showReceiptModal,
             showSettings, showFirstRunImport, storeName, storeAddress, storePhone,
@@ -1455,6 +1557,17 @@
       });
 
       app.mount('#app');
+    </script>
+    <script>
+      // Fallback: if app fails to boot, ensure loader disappears
+      window.addEventListener('DOMContentLoaded', function(){
+        setTimeout(function(){
+          try {
+            var el = document.getElementById('app-loader');
+            if (el) el.remove();
+          } catch (e) {}
+        }, 5000);
+      });
     </script>
   </body>
   </html>
