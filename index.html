@@ -194,7 +194,7 @@
       <div v-if="activeTab==='history'" class="space-y-4">
           <section class="bg-white rounded-2xl shadow p-4">
             <h2 class="font-semibold mb-3">Riwayat Transaksi</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-6 gap-2 mb-3">
+            <div class="grid grid-cols-1 sm:grid-cols-7 gap-2 mb-3">
               <div class="sm:col-span-2">
                 <label class="text-xs text-gray-500">Tanggal awal</label>
                 <input type="date" v-model="filterStart" class="w-full border rounded px-2 py-1" />
@@ -210,6 +210,14 @@
                   <option value="cash">Tunai</option>
                   <option value="qris">QRIS</option>
                   <option value="other">Lainnya</option>
+                </select>
+              </div>
+              <div class="sm:col-span-1">
+                <label class="text-xs text-gray-500">Status</label>
+                <select v-model="historyStatus" class="w-full border rounded px-2 py-1">
+                  <option value="">Semua</option>
+                  <option value="lunas">Lunas</option>
+                  <option value="tagihan">Tagihan</option>
                 </select>
               </div>
               <div class="sm:col-span-1">
@@ -241,6 +249,7 @@
                   <div class="font-medium tabular-nums">{{ formatIDR(tx.total) }}</div>
                   <div class="flex gap-2 justify-end">
                     <button class="px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs" @click="loadReceipt(tx); showReceiptModal=true; activeTab='pos'">Lihat Struk</button>
+                    <button v-if="(tx.paymentStatus||'')==='tagihan'" class="px-2 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs" @click="openPayInvoice(tx)">Bayar</button>
                   </div>
                 </div>
               </div>
@@ -559,6 +568,56 @@
         </div>
       </div>
 
+      <!-- Pay Invoice Modal -->
+      <div v-if="showPayInvoice" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div class="bg-white rounded-xl shadow p-4 w-full max-w-sm">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-semibold">Bayar Tagihan</h3>
+            <button @click="closePayInvoice" class="p-2 rounded hover:bg-gray-100" aria-label="Tutup">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.536-10.95a1 1 0 00-1.414-1.414L10 7.586 7.879 5.465A1 1 0 106.465 6.88L8.586 9l-2.121 2.121a1 1 0 101.414 1.415L10 10.414l2.121 2.122a1 1 0 001.415-1.415L11.414 9l2.122-2.121z" clip-rule="evenodd"/></svg>
+            </button>
+          </div>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div>Total</div>
+              <div class="font-semibold tabular-nums">{{ formatIDR((payInvoiceTx && payInvoiceTx.total) || 0) }}</div>
+            </div>
+            <div>
+              <div class="text-sm text-gray-500 mb-1">Metode</div>
+              <div class="grid grid-cols-3 gap-2">
+                <button @click="payMethod='cash'" :class="payMethod==='cash' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded">Tunai</button>
+                <button @click="payMethod='qris'" :class="payMethod==='qris' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded">QRIS</button>
+                <button @click="payMethod='other'" :class="payMethod==='other' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-2 rounded">Lainnya</button>
+              </div>
+            </div>
+            <div v-if="payMethod==='cash'" class="space-y-2">
+              <div>
+                <label class="text-sm text-gray-500">Tunai (Rp)</label>
+                <input type="number" min="0" step="100" v-model.number="payCash" class="w-full border rounded px-3 py-2" />
+              </div>
+              <div class="grid grid-cols-4 gap-2">
+                <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="payCash = (Number(payCash)||0)+100000">100K</button>
+                <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="payCash = (Number(payCash)||0)+50000">50K</button>
+                <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="payCash = (Number(payCash)||0)+20000">20K</button>
+                <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="payCash = (Number(payCash)||0)+10000">10K</button>
+                <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="payCash = (Number(payCash)||0)+5000">5K</button>
+                <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="payCash = (Number(payCash)||0)+2000">2K</button>
+                <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="payCash = (Number(payCash)||0)+1000">1K</button>
+                <button class="px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100" @click="payCash = ((payInvoiceTx && payInvoiceTx.total) || 0)">Pas</button>
+              </div>
+              <div class="flex items-center justify-between">
+                <div>Kembali</div>
+                <div class="font-semibold tabular-nums">{{ formatIDR(payChange) }}</div>
+              </div>
+            </div>
+
+            <button class="w-full mt-2 px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+              :disabled="(payMethod==='cash' && (Number(payCash)||0) < (Number((payInvoiceTx && payInvoiceTx.total) || 0)||0))"
+              @click="confirmPayInvoice">Tandai Lunas</button>
+          </div>
+        </div>
+      </div>
+
       
     </div>
 
@@ -619,6 +678,16 @@
             tx.onerror = () => reject(tx.error);
           });
         }
+        async function putOne(doc){
+          const idb = await open();
+          return new Promise((resolve, reject) => {
+            const tx = idb.transaction('transactions', 'readwrite');
+            const store = tx.objectStore('transactions');
+            const req = store.put(doc);
+            req.onsuccess = () => resolve(true);
+            req.onerror = () => reject(req.error);
+          });
+        }
         async function getAllDesc(){
           const idb = await open();
           return new Promise((resolve, reject) => {
@@ -640,7 +709,7 @@
             req.onerror = () => reject(req.error);
           });
         }
-        return { open, add, putMany, getAllDesc };
+        return { open, add, putMany, putOne, getAllDesc };
       })();
 
       async function migrateDexieTransactionsOnce(){
@@ -970,6 +1039,7 @@
           const history = ref([]);
           const historyQuery = ref('');
           const historyMethod = ref('');
+          const historyStatus = ref(''); // '' | 'lunas' | 'tagihan'
           const products = ref([]);
           const newProduct = reactive({ id: null, name: '', price: null, barcode: '' });
           const productQuery = ref('');
@@ -977,6 +1047,16 @@
           const scanError = ref('');
           const filterStart = ref('');
           const filterEnd = ref('');
+
+          // Pay Invoice state
+          const showPayInvoice = ref(false);
+          const payInvoiceTx = ref(null);
+          const payMethod = ref('cash');
+          const payCash = ref(0);
+          const payChange = computed(() => {
+            const total = Number(payInvoiceTx.value?.total)||0;
+            return payMethod.value==='cash' ? Math.max(0, (Number(payCash.value)||0) - total) : 0;
+          });
 
           const lastReceipt = ref(null);
 
@@ -1235,12 +1315,20 @@
             const start = filterStart.value ? new Date(filterStart.value + 'T00:00:00') : null;
             const end = filterEnd.value ? new Date(filterEnd.value + 'T23:59:59.999') : null;
             const method = (historyMethod.value||'').trim();
+            const status = (historyStatus.value||'').trim();
             const q = (historyQuery.value||'').toLowerCase();
             return history.value.filter(tx => {
               const d = new Date(tx.date);
               if (start && d < start) return false;
               if (end && d > end) return false;
               if (method && tx.paymentMethod !== method) return false;
+              if (status) {
+                if (status === 'tagihan') {
+                  if ((tx.paymentStatus||'') !== 'tagihan') return false;
+                } else if (status === 'lunas') {
+                  if ((tx.paymentStatus||'') === 'tagihan') return false;
+                }
+              }
               if (q){
                 const idStr = String(tx.id||'');
                 const note = (tx.paymentNote||'').toLowerCase();
@@ -1261,6 +1349,7 @@
           function resetHistoryFilters(){
             historyQuery.value = '';
             historyMethod.value = '';
+            historyStatus.value = '';
             filterStart.value = '';
             filterEnd.value = '';
           }
@@ -1433,6 +1522,60 @@
           function addCash(amount){ cash.value = (Number(cash.value)||0) + amount; }
           function paymentLabel(m){ return m==='cash' ? 'Tunai' : (m==='qris' ? 'QRIS' : 'Lainnya'); }
 
+          function openPayInvoice(tx){
+            try {
+              payInvoiceTx.value = JSON.parse(JSON.stringify(tx));
+            } catch { payInvoiceTx.value = tx; }
+            payMethod.value = 'cash';
+            payCash.value = 0;
+            showPayInvoice.value = true;
+          }
+          function closePayInvoice(){ showPayInvoice.value = false; payInvoiceTx.value = null; payCash.value = 0; }
+          async function confirmPayInvoice(){
+            const src = payInvoiceTx.value; if (!src) return;
+            const totalDue = Number(src.total)||0;
+            if (payMethod.value==='cash' && (Number(payCash.value)||0) < totalDue) return;
+            const updated = { ...src };
+            updated.paymentStatus = 'lunas';
+            updated.paymentMethod = payMethod.value;
+            if (payMethod.value==='cash') {
+              updated.paid = Number(payCash.value)||0;
+              updated.change = Math.max(0, (Number(payCash.value)||0) - totalDue);
+            } else {
+              updated.paid = totalDue;
+              updated.change = 0;
+            }
+            try {
+              // Serialize strictly to plain data before storing
+              const clean = {
+                id: updated.id ?? undefined,
+                date: updated.date || new Date().toISOString(),
+                items: (updated.items||[]).map(i => ({ name: String(i.name||''), price: Number(i.price)||0, qty: Number(i.qty)||0 })),
+                subtotal: Number(updated.subtotal)||0,
+                discountPct: Number(updated.discountPct)||0,
+                discountAmount: Number(updated.discountAmount)||0,
+                taxPct: Number(updated.taxPct)||0,
+                taxAmount: Number(updated.taxAmount)||0,
+                total: Number(updated.total)||0,
+                paymentMethod: updated.paymentMethod || '',
+                paymentStatus: updated.paymentStatus || '',
+                paymentNote: updated.paymentNote || '',
+                paid: Number(updated.paid)||0,
+                change: Number(updated.change)||0,
+              };
+              await idbTx.putOne(clean);
+              await loadHistory();
+              showPayInvoice.value = false;
+              payInvoiceTx.value = null;
+              // Show updated receipt
+              lastReceipt.value = clean;
+              showReceiptModal.value = true;
+              activeTab.value = 'pos';
+            } catch (e) {
+              alert('Gagal menyimpan: ' + (e?.message||''));
+            }
+          }
+
           async function printReceipt(){
             if (!hasPrintableReceipt.value) return;
             if (!showReceiptModal.value) { showReceiptModal.value = true; await nextTick(); }
@@ -1522,11 +1665,12 @@
             newItem, cart, discountPct, taxPct,
             subtotal, discountAmount, taxable, taxAmount, total,
             activeTab, showPayment, paymentMethod, paymentStatus, cash, change, otherNote, invoiceNote,
-            history, historyQuery, historyMethod, filterStart, filterEnd,
+            history, historyQuery, historyMethod, historyStatus, filterStart, filterEnd,
             lastReceipt, showReceiptModal,
             showSettings, showFirstRunImport, storeName, storeAddress, storePhone,
             products, newProduct, productQuery, filteredProducts,
             showScanner, scanError,
+            showPayInvoice, payInvoiceTx, payMethod, payCash, payChange,
             qrisBase,
             gsWebAppUrl, gsSheetId, gsSheetName, gsSecret, gsUseColumns, autoBackup,
             backupStatus, backupStatusOk,
@@ -1543,6 +1687,7 @@
             openPayment, confirmPayment,
             loadReceipt, printReceipt,
             addCash, paymentLabel,
+            openPayInvoice, closePayInvoice, confirmPayInvoice,
             loadSettings, saveSettings,
             shareReceiptWA,
             loadProducts, saveProduct, editProduct, deleteProduct,
