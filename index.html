@@ -105,7 +105,7 @@
             <h2 class="font-semibold mb-3">Tambah Item</h2>
             <div class="grid grid-cols-1 sm:grid-cols-6 gap-2">
               <input v-model="newItem.name" type="text" placeholder="Nama item" class="sm:col-span-3 border rounded-lg px-3 py-2" />
-              <input v-model.number="newItem.price" type="number" min="0" step="100" placeholder="Harga (Rp)" class="sm:col-span-2 border rounded-lg px-3 py-2" />
+              <input :value="formatCurrencyInput(newItem.price)" @input="e => newItem.price = parseCurrencyInput(e.target.value)" type="text" inputmode="numeric" placeholder="Harga (Rp)" class="sm:col-span-2 border rounded-lg px-3 py-2" />
               <button @click="addItem" class="sm:col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-3 py-2 flex items-center justify-center" aria-label="Tambah item">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/></svg>
               </button>
@@ -291,7 +291,7 @@
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-6 gap-2">
             <input v-model="newProduct.name" placeholder="Nama produk" class="sm:col-span-2 border rounded px-3 py-2" />
-            <input v-model.number="newProduct.price" type="number" min="0" step="100" placeholder="Harga (Rp)" class="sm:col-span-2 border rounded px-3 py-2" />
+            <input :value="formatCurrencyInput(newProduct.price)" @input="e => newProduct.price = parseCurrencyInput(e.target.value)" type="text" inputmode="numeric" placeholder="Harga (Rp)" class="sm:col-span-2 border rounded px-3 py-2" />
             <input v-model="newProduct.barcode" placeholder="Barcode (opsional)" class="sm:col-span-1 border rounded px-3 py-2" />
             <button @click="saveProduct" class="sm:col-span-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2">Simpan</button>
           </div>
@@ -363,7 +363,7 @@
               <div v-if="paymentMethod==='cash'" class="space-y-2">
                 <div>
                   <label class="text-sm text-gray-500">Tunai (Rp)</label>
-                  <input type="number" min="0" step="100" v-model.number="cash" class="w-full border rounded px-3 py-2" />
+              <input type="text" inputmode="numeric" :value="formatCurrencyInput(cash)" @input="e => cash = parseCurrencyInput(e.target.value)" class="w-full border rounded px-3 py-2" />
                 </div>
                 <div class="grid grid-cols-4 gap-2">
                   <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="addCash(100000)">100K</button>
@@ -593,7 +593,7 @@
             <div v-if="payMethod==='cash'" class="space-y-2">
               <div>
                 <label class="text-sm text-gray-500">Tunai (Rp)</label>
-                <input type="number" min="0" step="100" v-model.number="payCash" class="w-full border rounded px-3 py-2" />
+                <input type="text" inputmode="numeric" :value="formatCurrencyInput(payCash)" @input="e => payCash = parseCurrencyInput(e.target.value)" class="w-full border rounded px-3 py-2" />
               </div>
               <div class="grid grid-cols-4 gap-2">
                 <button class="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200" @click="payCash = (Number(payCash)||0)+100000">100K</button>
@@ -1090,6 +1090,15 @@
           });
 
           function formatIDR(n){ return idr.format(Number(n)||0); }
+          function parseCurrencyInput(v){
+            const s = String(v ?? '');
+            const digits = s.replace(/\D+/g, '');
+            return digits ? Number(digits) : 0;
+          }
+          function formatCurrencyInput(n){
+            if (n === null || n === undefined || Number.isNaN(n)) return '';
+            return formatIDR(n);
+          }
           function formatDateTime(iso){ if (!iso) return '-'; const d = new Date(iso); return d.toLocaleString('id-ID'); }
 
           function addItem(){
@@ -1682,7 +1691,7 @@
             qrisPayloadFinal,
 
             // methods
-            formatIDR, formatDateTime,
+            formatIDR, formatDateTime, parseCurrencyInput, formatCurrencyInput,
             addItem, incQty, decQty, removeItem, clearCart,
             openPayment, confirmPayment,
             loadReceipt, printReceipt,
