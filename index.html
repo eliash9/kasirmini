@@ -520,6 +520,7 @@
                 <span><span class="text-gray-500">Transaksi:</span> {{ historySummary.count }}</span>
                 <span><span class="text-gray-500">Omzet:</span> <span class="tabular-nums font-medium">{{ formatIDR(historySummary.total) }}</span></span>
                 <span><span class="text-gray-500">Rata-rata:</span> <span class="tabular-nums">{{ formatIDR(historySummary.avg) }}</span></span>
+                <span><span class="text-gray-500">Laba Kotor:</span> <span class="tabular-nums">{{ formatIDR(historySummary.profit||0) }}</span></span>
               </div>
             <div class="flex gap-2">
                 <button @click="exportHistoryCSV" class="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-sm">Ekspor CSV</button>
@@ -537,6 +538,7 @@
                 </div>
                 <div class="text-right">
                   <div class="font-medium tabular-nums">{{ formatIDR(tx.total) }}</div>
+                  <div v-if="typeof tx.profit !== 'undefined'" class="text-xs text-gray-500 tabular-nums">Laba: {{ formatIDR(tx.profit||0) }}</div>
                   <div class="flex gap-2 justify-end">
                     <button class="px-2 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs" @click="loadReceipt(tx); showReceiptModal=true; activeTab='pos'">Lihat Struk</button>
                     <button v-if="(tx.paymentStatus||'')==='tagihan'" class="px-2 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs" @click="openPayInvoice(tx)">Bayar</button>
@@ -579,9 +581,10 @@
               <span class="hidden sm:inline">Restore Sheet</span>
             </button>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-6 gap-2">
+          <div class="grid grid-cols-1 sm:grid-cols-8 gap-2">
             <input v-model="newProduct.name" placeholder="Nama produk" class="sm:col-span-2 border rounded px-3 py-2" />
-            <input :value="formatCurrencyInput(newProduct.price)" @input="e => newProduct.price = parseCurrencyInput(e.target.value)" type="text" inputmode="numeric" placeholder="Harga (Rp)" class="sm:col-span-2 border rounded px-3 py-2" />
+            <input :value="formatCurrencyInput(newProduct.price)" @input="e => newProduct.price = parseCurrencyInput(e.target.value)" type="text" inputmode="numeric" placeholder="Harga Jual (Rp)" class="sm:col-span-2 border rounded px-3 py-2" />
+            <input :value="formatCurrencyInput(newProduct.cost)" @input="e => newProduct.cost = parseCurrencyInput(e.target.value)" type="text" inputmode="numeric" placeholder="HPP (Rp)" class="sm:col-span-2 border rounded px-3 py-2" />
             <input v-model="newProduct.barcode" placeholder="Barcode (opsional)" class="sm:col-span-1 border rounded px-3 py-2" />
             <button @click="saveProduct" class="sm:col-span-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2">Simpan</button>
           </div>
@@ -592,6 +595,7 @@
             <div v-for="p in products" :key="p.id" class="border rounded p-3 flex items-center justify-between">
               <div>
                 <div class="font-medium">{{ p.name }}</div>
+                <div class="text-xs text-gray-500">HPP: {{ formatIDR(p.cost||0) }} · Margin: {{ p.price>0 ? Math.round(((Number(p.price)||0)-(Number(p.cost)||0))/(Number(p.price)||1)*100) : 0 }}%</div>
                 <div class="text-xs text-gray-500">{{ formatIDR(p.price) }} • {{ p.barcode || '—' }}</div>
               </div>
               <div class="flex gap-2">
@@ -1396,7 +1400,7 @@
           const historyMethod = ref('');
           const historyStatus = ref(''); // '' | 'lunas' | 'tagihan'
           const products = ref([]);
-          const newProduct = reactive({ id: null, name: '', price: null, barcode: '' });
+          const newProduct = reactive({ id: null, name: '', price: null, cost: null, barcode: '' });
           const productQuery = ref('');
           const showScanner = ref(false);
           const scanError = ref('');
@@ -1477,15 +1481,27 @@
 
           async function confirmPayment(){
             if (paymentStatus.value === 'lunas' && paymentMethod.value === 'cash' && cash.value < total.value) return;
+            // Enrich items with HPP (cost) from master products if available
+            const itemsEnriched = cart.value.map(i => {
+              const unitPrice = Number(i.price)||0;
+              const found = (products.value||[]).find(p => (p.name===i.name) && (Number(p.price)||0)===unitPrice);
+              const unitCost = Number(found?.cost)||0;
+              return { name: i.name, price: unitPrice, qty: Number(i.qty)||0, cost: unitCost };
+            });
+            const totalCost = itemsEnriched.reduce((s, it) => s + (Number(it.cost)||0) * (Number(it.qty)||0), 0);
+            const revenueBeforeTax = Math.max(0, (subtotal.value - discountAmount.value));
+            const grossProfit = Math.max(0, revenueBeforeTax - totalCost);
             const tx = {
               date: new Date().toISOString(),
-              items: cart.value.map(i => ({ name: i.name, price: Number(i.price)||0, qty: Number(i.qty)||0 })),
+              items: itemsEnriched,
               subtotal: subtotal.value,
               discountPct: Number(discountPct.value)||0,
               discountAmount: discountAmount.value,
               taxPct: Number(taxPct.value)||0,
               taxAmount: taxAmount.value,
               total: total.value,
+              cogs: totalCost,
+              profit: grossProfit,
               paymentMethod: paymentMethod.value,
               paymentStatus: paymentStatus.value,
               paymentNote: paymentStatus.value==='tagihan' ? (invoiceNote.value||'') : (paymentMethod.value==='other' ? (otherNote.value||'') : ''),
@@ -1520,14 +1536,15 @@
           async function saveProduct(){
             const name = (newProduct.name||'').trim();
             const price = Math.max(0, Number(newProduct.price)||0);
+            const cost = Math.max(0, Number(newProduct.cost)||0);
             const barcode = (newProduct.barcode||'').trim();
             if (!name || price<=0) return;
             if (newProduct.id){
-              await db.products.update(newProduct.id, { name, price, barcode });
+              await db.products.update(newProduct.id, { name, price, cost, barcode });
             } else {
-              await db.products.add({ name, price, barcode });
+              await db.products.add({ name, price, cost, barcode });
             }
-            Object.assign(newProduct, { id:null, name:'', price:null, barcode:'' });
+            Object.assign(newProduct, { id:null, name:'', price:null, cost:null, barcode:'' });
             await loadProducts();
           }
           function editProduct(p){ Object.assign(newProduct, p); }
@@ -1535,7 +1552,7 @@
 
           // ===== Backup/Restore Products =====
           function serializeProduct(p){
-            return { id: p.id ?? null, name: p.name||'', price: Number(p.price)||0, barcode: p.barcode||'' };
+            return { id: p.id ?? null, name: p.name||'', price: Number(p.price)||0, cost: Number(p.cost)||0, barcode: p.barcode||'' };
           }
           async function exportProductsJSON(){
             try{
@@ -1563,7 +1580,7 @@
                 await db.products.clear();
               }
               // Use bulkPut to insert/overwrite by id if available
-              const toPut = items.map(x => ({ id: x.id, name: String(x.name||''), price: Number(x.price)||0, barcode: String(x.barcode||'') }));
+              const toPut = items.map(x => ({ id: x.id, name: String(x.name||''), price: Number(x.price)||0, cost: Number(x.cost)||0, barcode: String(x.barcode||'') }));
               await db.products.bulkPut(toPut);
               await loadProducts();
               backupStatus.value = 'Impor produk selesai'; backupStatusOk.value = true;
@@ -1588,7 +1605,7 @@
               const items = Array.isArray(resp?.rows) ? resp.rows : [];
               if (!items.length) { backupStatus.value = 'Tidak ada produk di Sheet'; backupStatusOk.value=false; return; }
               if (replace) await db.products.clear();
-              const toPut = items.map(x => ({ id: x.id, name: String(x.name||''), price: Number(x.price)||0, barcode: String(x.barcode||'') }));
+              const toPut = items.map(x => ({ id: x.id, name: String(x.name||''), price: Number(x.price)||0, cost: Number(x.cost)||0, barcode: String(x.barcode||'') }));
               await db.products.bulkPut(toPut);
               await loadProducts();
               backupStatus.value = `Restore produk selesai: ${toPut.length}`; backupStatusOk.value=true;
@@ -1706,8 +1723,9 @@
           const historySummary = computed(() => {
             const arr = filteredHistory.value;
             const totalSum = arr.reduce((s, t) => s + (Number(t.total)||0), 0);
+            const profitSum = arr.reduce((s, t) => s + (Number(t.profit)||0), 0);
             const count = arr.length;
-            return { count, total: totalSum, avg: count ? Math.floor(totalSum / count) : 0 };
+            return { count, total: totalSum, avg: count ? Math.floor(totalSum / count) : 0, profit: profitSum };
           });
 
           function resetHistoryFilters(){
@@ -1720,7 +1738,7 @@
 
           function exportHistoryCSV(){
             const rows = [];
-            const header = ['id','date','total','paymentMethod','itemsCount','discountPct','taxPct','paid','change','paymentNote','items'];
+            const header = ['id','date','total','profit','cogs','paymentMethod','itemsCount','discountPct','taxPct','paid','change','paymentNote','items'];
             rows.push(header.join(','));
             for (const tx of filteredHistory.value){
               const itemsText = (tx.items||[]).map(i => `${(i.name||'').replaceAll('"','""')} x ${i.qty} @ ${i.price}`).join('; ');
@@ -1728,6 +1746,8 @@
                 tx.id ?? '',
                 tx.date ?? '',
                 tx.total ?? 0,
+                tx.profit ?? 0,
+                tx.cogs ?? 0,
                 tx.paymentMethod ?? '',
                 (tx.items||[]).length,
                 tx.discountPct ?? 0,
@@ -1763,12 +1783,14 @@
               taxPct: Number(tx.taxPct)||0,
               taxAmount: Number(tx.taxAmount)||0,
               total: Number(tx.total)||0,
+              cogs: Number(tx.cogs)||0,
+              profit: Number(tx.profit)||0,
               paymentMethod: tx.paymentMethod || '',
               paymentStatus: tx.paymentStatus || '',
               paymentNote: tx.paymentNote || '',
               paid: Number(tx.paid)||0,
               change: Number(tx.change)||0,
-              items: (tx.items||[]).map(i => ({ name: i.name||'', price: Number(i.price)||0, qty: Number(i.qty)||0 })),
+              items: (tx.items||[]).map(i => ({ name: i.name||'', price: Number(i.price)||0, qty: Number(i.qty)||0, cost: Number(i.cost)||0 })),
             };
           }
           async function appsScriptCall(body){
@@ -1838,13 +1860,15 @@
               const cleaned = rows.map(r => ({
                 id: r.id ?? undefined,
                 date: r.date,
-                items: Array.isArray(r.items) ? r.items : [],
+                items: Array.isArray(r.items) ? r.items.map(i => ({ name: String(i.name||''), price: Number(i.price)||0, qty: Number(i.qty)||0, cost: Number(i.cost)||0 })) : [],
                 subtotal: Number(r.subtotal)||0,
                 discountPct: Number(r.discountPct)||0,
                 discountAmount: Number(r.discountAmount)||0,
                 taxPct: Number(r.taxPct)||0,
                 taxAmount: Number(r.taxAmount)||0,
                 total: Number(r.total)||0,
+                cogs: Number(r.cogs)||0,
+                profit: Number(r.profit)||0,
                 paymentMethod: r.paymentMethod || '',
                 paymentStatus: r.paymentStatus || '',
                 paymentNote: r.paymentNote || '',
@@ -1914,13 +1938,15 @@
               const clean = {
                 id: updated.id ?? undefined,
                 date: updated.date || new Date().toISOString(),
-                items: (updated.items||[]).map(i => ({ name: String(i.name||''), price: Number(i.price)||0, qty: Number(i.qty)||0 })),
+                items: (updated.items||[]).map(i => ({ name: String(i.name||''), price: Number(i.price)||0, qty: Number(i.qty)||0, cost: Number(i.cost)||0 })),
                 subtotal: Number(updated.subtotal)||0,
                 discountPct: Number(updated.discountPct)||0,
                 discountAmount: Number(updated.discountAmount)||0,
                 taxPct: Number(updated.taxPct)||0,
                 taxAmount: Number(updated.taxAmount)||0,
                 total: Number(updated.total)||0,
+                cogs: Number(updated.cogs)||0,
+                profit: Number(updated.profit)||0,
                 paymentMethod: updated.paymentMethod || '',
                 paymentStatus: updated.paymentStatus || '',
                 paymentNote: updated.paymentNote || '',

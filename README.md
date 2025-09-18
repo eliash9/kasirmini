@@ -348,3 +348,276 @@ git push -u origin main
 ## Lisensi
 Proyek contoh untuk keperluan demo/eksperimen. Tambahkan lisensi sesuai kebutuhan Anda.
 
+
+## Pembaruan: Dark Mode, Logo Kustom, HPP (2025-09)
+
+Ringkasan perubahan aplikasi:
+- Dark mode menyeluruh (header, background, tombol) dengan palet “muted” dan transisi halus. Preferensi tema disimpan dan diterapkan sejak awal load untuk menghindari flash terang.
+- Logo toko kustom (unggah di Pengaturan) tampil di header dan struk; disimpan lokal sebagai Data URL.
+- HPP per produk (`cost`) di master produk. Transaksi menyimpan `items[].cost`, `cogs` (total HPP), dan `profit` (laba kotor). Riwayat menampilkan total laba kotor; ekspor CSV menambah kolom `profit` dan `cogs`.
+
+### Skema data terbaru
+- Produk: `{ id, name, price, cost, barcode }`
+- Transaksi (ringkas):
+  - Level transaksi: `{ id, date, subtotal, discountPct, discountAmount, taxPct, taxAmount, total, cogs, profit, paymentMethod, paymentStatus, paymentNote, paid, change }`
+  - Item: `{ name, price, qty, cost }`
+
+### Update Apps Script (jika pakai mode per-kolom)
+Jika endpoint Apps Script Anda menggunakan mode “columns”, tambahkan kolom berikut:
+
+- Sheet `Products`: header `id | name | price | cost | barcode | updatedAt`
+- Sheet `Backup` (transaksi): tambah `cogs | profit | itemsJson`
+
+Contoh potongan fungsi untuk transaksi (sesuaikan dengan skrip Anda):
+
+```js
+function flattenTxColumns(tx) {
+  const items = Array.isArray(tx.items) ? tx.items : [];
+  return [
+    new Date(),
+    toNum(tx.id), tx.date || '',
+    toNum(tx.subtotal), toNum(tx.discountPct), toNum(tx.discountAmount),
+    toNum(tx.taxPct), toNum(tx.taxAmount), toNum(tx.total),
+    toNum(tx.cogs), toNum(tx.profit),
+    String(tx.paymentMethod||''), String(tx.paymentNote||''),
+    toNum(tx.paid), toNum(tx.change),
+    JSON.stringify(items), items.length
+  ];
+}
+
+function rowToTx(headers, row) {
+  const o = {}; for (let i=0;i<headers.length;i++) o[headers[i]] = row[i];
+  let items = []; try { items = JSON.parse(o.itemsJson || '[]'); } catch {}
+  return {
+    id: toNum(o.id), date: o.date || '', items,
+    subtotal: toNum(o.subtotal), discountPct: toNum(o.discountPct), discountAmount: toNum(o.discountAmount),
+    taxPct: toNum(o.taxPct), taxAmount: toNum(o.taxAmount), total: toNum(o.total),
+    cogs: toNum(o.cogs), profit: toNum(o.profit),
+    paymentMethod: String(o.paymentMethod||''), paymentNote: String(o.paymentNote||''),
+    paid: toNum(o.paid), change: toNum(o.change),
+  };
+}
+```
+
+Contoh potongan fungsi untuk produk (mode per-kolom):
+
+```js
+// Saat menulis (products_put)
+const HEADERS_P = ['id','name','price','cost','barcode','updatedAt'];
+ensureHeader(shP, HEADERS_P);
+const values = rows.map(p => [toNum(p.id), String(p.name||''), toNum(p.price), toNum(p.cost), String(p.barcode||''), new Date()]);
+shP.getRange(shP.getLastRow()+1, 1, values.length, HEADERS_P.length).setValues(values);
+
+// Saat membaca (products_list)
+const HEADERS_P = getHeaders(shP);
+const data = shP.getRange(2, 1, Math.max(0, last-1), HEADERS_P.length).getValues();
+const idx = {
+  id: HEADERS_P.indexOf('id'), name: HEADERS_P.indexOf('name'),
+  price: HEADERS_P.indexOf('price'), cost: HEADERS_P.indexOf('cost'),
+  barcode: HEADERS_P.indexOf('barcode'),
+};
+const rows = data.map(r => ({
+  id: toNum(idx.id>=0 ? r[idx.id] : 0),
+  name: String(idx.name>=0 ? r[idx.name] : ''),
+  price: toNum(idx.price>=0 ? r[idx.price] : 0),
+  cost: toNum(idx.cost>=0 ? r[idx.cost] : 0),
+  barcode: String(idx.barcode>=0 ? r[idx.barcode] : ''),
+}));
+```
+
+Jika Anda memakai mode `format: 'json'`, tidak perlu menambah kolom manual — objek `rows` dari aplikasi sudah memuat field `cost` (produk), serta `cogs`, `profit`, dan `items[].cost` (transaksi).
+
+## Apps Script (Lengkap)
+Berikut contoh lengkap Apps Script Web App yang mendukung mode JSON dan per-kolom, termasuk field HPP (`cost`) untuk produk, serta `cogs` dan `profit` untuk transaksi.
+
+Langkah cepat:
+- Di Google Sheet, buka Extensions → Apps Script, ganti isi `Code.gs` dengan skrip di bawah ini.
+- Deploy → New deployment → type Web app → Execute as: Me, Who has access: Anyone → salin URL `/exec` ke aplikasi.
+- Opsional: set `APP_SECRET` di baris atas, lalu isi Secret yang sama di Pengaturan aplikasi.
+
+```js
+const APP_SECRET = '';// isi untuk proteksi opsional
+
+function doPost(e){
+  try {
+    const ss = SpreadsheetApp.openById(String((e.parameter.sheetId || '') || (JSON.parse(e.postData.contents||'{}').sheetId||'')));
+    const raw = e && e.postData && e.postData.contents || '{}';
+    const body = JSON.parse(raw);
+    if (APP_SECRET && String(body.secret||'') !== APP_SECRET) return json({ ok:false, error:'unauthorized' });
+
+    const action = String(body.action||'').toLowerCase();
+    const fmt = String(body.format||'json').toLowerCase();
+
+    // ---- TRANSACTIONS ----
+    if (action === 'append') {
+      const tab = body.sheetName || 'Backup';
+      const sh = ss.getSheetByName(tab) || ss.insertSheet(tab);
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (fmt === 'json') {
+        ensureHeader(sh, ['json','updatedAt']);
+        const values = rows.map(r => [JSON.stringify(r), new Date()]);
+        sh.getRange(sh.getLastRow()+1, 1, values.length, 2).setValues(values);
+        return json({ ok:true, inserted: values.length });
+      }
+      const HEADERS = ['createdAt','id','date','subtotal','discountPct','discountAmount','taxPct','taxAmount','total','cogs','profit','paymentMethod','paymentNote','paid','change','itemsJson','itemsCount'];
+      ensureHeader(sh, HEADERS);
+      const values = rows.map(tx => flattenTxColumns(tx));
+      sh.getRange(sh.getLastRow()+1, 1, values.length, HEADERS.length).setValues(values);
+      return json({ ok:true, inserted: values.length });
+    }
+
+    if (action === 'list') {
+      const tab = body.sheetName || 'Backup';
+      const sh = ss.getSheetByName(tab) || ss.insertSheet(tab);
+      const last = sh.getLastRow();
+      if (last < 1) return json({ ok:true, rows: [] });
+      if (fmt === 'json') {
+        const data = sh.getRange(1, 2, last, 1).getValues().map(r => { try { return JSON.parse(r[0]); } catch { return null; } }).filter(Boolean);
+        return json({ ok:true, rows: data });
+      }
+      const HEADERS = getHeaders(sh);
+      if (!HEADERS.length) return json({ ok:true, rows: [] });
+      const data = sh.getRange(2, 1, Math.max(0, last-1), HEADERS.length).getValues();
+      const rows = data.map(r => rowToTx(HEADERS, r));
+      return json({ ok:true, rows });
+    }
+
+    // ---- PRODUCTS (with cost/HPP) ----
+    if (action === 'products_put') {
+      const tab = body.sheetName || 'Products';
+      const sh = ss.getSheetByName(tab) || ss.insertSheet(tab);
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (fmt === 'json') {
+        ensureHeader(sh, ['json','updatedAt']);
+        const values = rows.map(r => [JSON.stringify(r), new Date()]);
+        sh.getRange(sh.getLastRow()+1, 1, values.length, 2).setValues(values);
+        return json({ ok:true, inserted: values.length });
+      }
+      const HEADERS_P = ['id','name','price','cost','barcode','updatedAt'];
+      ensureHeader(sh, HEADERS_P);
+      const values = rows.map(p => [toNum(p.id), String(p.name||''), toNum(p.price), toNum(p.cost), String(p.barcode||''), new Date()]);
+      sh.getRange(sh.getLastRow()+1, 1, values.length, HEADERS_P.length).setValues(values);
+      return json({ ok:true, inserted: values.length });
+    }
+
+    if (action === 'products_list') {
+      const tab = body.sheetName || 'Products';
+      const sh = ss.getSheetByName(tab) || ss.insertSheet(tab);
+      const last = sh.getLastRow();
+      if (last < 1) return json({ ok:true, rows: [] });
+      if (fmt === 'json') {
+        const data = sh.getRange(1, 2, last, 1).getValues().map(r => { try { return JSON.parse(r[0]); } catch { return null; } }).filter(Boolean);
+        return json({ ok:true, rows: data });
+      }
+      const HEADERS_P = getHeaders(sh);
+      if (!HEADERS_P.length) return json({ ok:true, rows: [] });
+      const data = sh.getRange(2, 1, Math.max(0, last-1), HEADERS_P.length).getValues();
+      const idx = {
+        id: HEADERS_P.indexOf('id'),
+        name: HEADERS_P.indexOf('name'),
+        price: HEADERS_P.indexOf('price'),
+        cost: HEADERS_P.indexOf('cost'),
+        barcode: HEADERS_P.indexOf('barcode'),
+      };
+      const rows = data.map(r => ({
+        id: toNum(idx.id>=0 ? r[idx.id] : 0),
+        name: String(idx.name>=0 ? r[idx.name] : ''),
+        price: toNum(idx.price>=0 ? r[idx.price] : 0),
+        cost: toNum(idx.cost>=0 ? r[idx.cost] : 0),
+        barcode: String(idx.barcode>=0 ? r[idx.barcode] : ''),
+      }));
+      return json({ ok:true, rows });
+    }
+
+    // ---- SETTINGS ----
+    if (action === 'settings_put') {
+      const cfgSheet = body.sheetName || 'Config';
+      const name = body.name || 'default';
+      const settings = body.settings || {};
+      const shCfg = ss.getSheetByName(cfgSheet) || ss.insertSheet(cfgSheet);
+      const headers = getHeaders(shCfg);
+      if (!headers.length) shCfg.getRange(1,1,1,3).setValues([['name','json','updatedAt']]);
+      const last = shCfg.getLastRow();
+      // cari baris by name
+      let rowIndex = -1;
+      if (last > 1) {
+        const names = shCfg.getRange(2,1,last-1,1).getValues().map(r => String(r[0]||''));
+        rowIndex = names.findIndex(v => v === name);
+        if (rowIndex !== -1) rowIndex = rowIndex + 2; // offset header
+      }
+      const payload = [name, JSON.stringify(settings), new Date()];
+      if (rowIndex === -1) shCfg.getRange(shCfg.getLastRow()+1, 1, 1, 3).setValues([payload]);
+      else shCfg.getRange(rowIndex, 1, 1, 3).setValues([payload]);
+      return json({ ok:true });
+    }
+
+    if (action === 'settings_get') {
+      const cfgSheet = body.sheetName || 'Config';
+      const name = body.name || 'default';
+      const shCfg = ss.getSheetByName(cfgSheet) || ss.insertSheet(cfgSheet);
+      const last = shCfg.getLastRow();
+      if (last < 2) return json({ ok:true, settings: {} });
+      const data = shCfg.getRange(2,1,last-1,3).getValues();
+      for (let i=0;i<data.length;i++){
+        const row = data[i];
+        if (String(row[0]||'') === name) {
+          try { return json({ ok:true, settings: JSON.parse(row[1]||'{}') }); }
+          catch { return json({ ok:false, error:'json settings rusak' }); }
+        }
+      }
+      return json({ ok:true, settings: {} });
+    }
+
+    return json({ ok:false, error:'action tidak dikenal' });
+  } catch (err) {
+    return json({ ok:false, error: String(err) });
+  }
+}
+
+function ensureHeader(sh, headers) {
+  const existing = getHeaders(sh);
+  if (!existing.length) {
+    sh.getRange(1,1,1,headers.length).setValues([headers]);
+    sh.getRange(1,1,1,headers.length).setFontWeight('bold');
+  }
+}
+function getHeaders(sh) {
+  const lastCol = sh.getLastColumn();
+  if (lastCol < 1) return [];
+  return sh.getRange(1,1,1,lastCol).getValues()[0].map(h => String(h||'').trim());
+}
+function flattenTxColumns(tx) {
+  const items = Array.isArray(tx.items) ? tx.items : [];
+  return [
+    new Date(),
+    toNum(tx.id), tx.date || '',
+    toNum(tx.subtotal), toNum(tx.discountPct), toNum(tx.discountAmount),
+    toNum(tx.taxPct), toNum(tx.taxAmount), toNum(tx.total),
+    toNum(tx.cogs), toNum(tx.profit),
+    String(tx.paymentMethod||''), String(tx.paymentNote||''),
+    toNum(tx.paid), toNum(tx.change),
+    JSON.stringify(items), items.length
+  ];
+}
+function rowToTx(headers, row) {
+  const o = {}; for (let i=0;i<headers.length;i++) o[headers[i]] = row[i];
+  let items = []; try { items = JSON.parse(o.itemsJson || '[]'); } catch {}
+  return {
+    id: toNum(o.id), date: o.date || '', items,
+    subtotal: toNum(o.subtotal), discountPct: toNum(o.discountPct), discountAmount: toNum(o.discountAmount),
+    taxPct: toNum(o.taxPct), taxAmount: toNum(o.taxAmount), total: toNum(o.total),
+    cogs: toNum(o.cogs), profit: toNum(o.profit),
+    paymentMethod: String(o.paymentMethod||''), paymentNote: String(o.paymentNote||''),
+    paid: toNum(o.paid), change: toNum(o.change),
+  };
+}
+function toNum(v){ const n = Number(v); return isFinite(n) ? n : 0; }
+function json(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+```
+
+Tips:
+- Untuk mencegah preflight CORS, client memakai `Content-Type: text/plain;charset=utf-8` dan body JSON.
+- Pisahkan tab untuk data JSON dan per-kolom agar konsisten dan mudah diperiksa.
