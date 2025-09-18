@@ -1,0 +1,16 @@
+            </button>
+            <button @click="activeTab='products'" :class="activeTab==='products' ? 'bg-white/90 text-gray-900' : 'bg-white/10 text-white hover:bg-white/20'" class="px-3 py-1 rounded flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h3l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V5z"/></svg>
+              <span class="hidden sm:inline">Produk</span>
+            </button>
+            <button @click="toggleDarkMode" class="ml-auto px-3 py-1 rounded bg-white/10 text-white hover:bg-white/20 flex items-center gap-2" aria-label="Toggle tema">
+              <span v-if="!useDark">🌙</span>
+              <span v-else>☀️</span>
+              <span class="hidden sm:inline">{{ useDark ? 'Terang' : 'Gelap' }}</span>
+            </button>
+            <button @click="showSettings=true" class="px-3 py-1 rounded bg-white/10 text-white hover:bg-white/20 flex items-center gap-2" aria-label="Pengaturan">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M11.983 1.574a1 1 0 00-1.966 0l-.117.586a1 1 0 01-.95.788l-.598.03a1 1 0 00-.905.62l-.232.561a1 1 0 01-.81.6l-.596.074a1 1 0 00-.827.727l-.157.587a1 1 0 01-.666.69l-.57.19a1 1 0 00-.62.905l.03.598a1 1 0 01-.788.95l-.586.117a1 1 0 000 1.966l.586.117a1 1 0 01.788.95l-.03.598a1 1 0 00.62.905l.57.19a1 1 0 01.666.69l.157.587a1 1 0 00.827.727l.596.074a1 1 0 01.81.6l.232.561a1 1 0 00.905.62l.598.03a1 1 0 01.95.788l.117.586a1 1 0 001.966 0l.117-.586a1 1 0 01.95-.788l.598-.03a1 1 0 00.905-.62l.232-.561a1 1 0 01.81-.6l.596-.074a1 1 0 00.827-.727l.157-.587a1 1 0 01.666-.69l.57-.19a1 1 0 00.62-.905l-.03-.598a1 1 0 01.788-.95l.586-.117a1 1 0 000-1.966l-.586-.117a1 1 0 01-.788-.95l.03-.598a1 1 0 00-.62-.905l-.57-.19a1 1 0 01-.666-.69l-.157-.587a1 1 0 00-.827-.727l-.596-.074a1 1 0 01-.81-.6l-.232-.561a1 1 0 00-.905-.62l-.598-.03a1 1 0 01-.95-.788l-.117-.586zM10 13a3 3 0 110-6 3 3 0 010 6z"/></svg>
+              <span class="hidden sm:inline">Pengaturan</span>
+            </button>
+          </div>
+        </div>

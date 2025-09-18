@@ -4,9 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Kasir Mini</title>
+    <!-- Tailwind config (enable class-based dark mode) -->
+    <script>
+      window.tailwind = window.tailwind || {};
+      window.tailwind.config = Object.assign({}, window.tailwind.config || {}, { darkMode: 'class' });
+    </script>
     <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <meta name="theme-color" content="#4f46e5" />
+    <meta id="theme-color" name="theme-color" content="#4f46e5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="manifest.webmanifest" />
@@ -14,24 +19,301 @@
     <link rel="icon" type="image/png" sizes="16x16" href="icons/ios/16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/ios/180.png" />
     <style>
+      :root {
+        --dark-bg-primary: #111827;
+        --dark-bg-secondary: #1f2937;
+        --dark-bg-tertiary: #374151;
+        --dark-text-primary: #e5e7eb;
+        --dark-text-secondary: #d1d5db;
+        --dark-text-muted: #9ca3af;
+        --dark-border: rgba(255, 255, 255, 0.15);
+        --dark-border-light: rgba(255, 255, 255, 0.08);
+      }
+
+      /* Transisi yang lebih spesifik untuk menghindari performa buruk */
+      body, .bg-white, .bg-gray-100, 
+      .text-gray-900, .text-gray-700, .text-gray-600, .text-gray-500,
+      .border, input, textarea, select, button {
+        transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+      }
+
+      /* Dark mode base overrides */
+      html.dark {
+        color-scheme: dark;
+      }
+      
+      html.dark body {
+        background-color: var(--dark-bg-primary);
+        color: var(--dark-text-primary);
+      }
+      
+      html.dark .bg-white {
+        background-color: var(--dark-bg-primary) !important;
+      }
+      
+      html.dark .text-gray-900 {
+        color: var(--dark-text-primary) !important;
+      }
+      
+      html.dark .text-gray-700 {
+        color: var(--dark-text-primary) !important;
+      }
+      
+      html.dark .text-gray-600 {
+        color: var(--dark-text-secondary) !important;
+      }
+      
+      html.dark .text-gray-500 {
+        color: var(--dark-text-muted) !important;
+      }
+      
+      html.dark .border {
+        border-color: var(--dark-border) !important;
+      }
+      
+      html.dark .divide-y > :not([hidden]) ~ :not([hidden]) {
+        border-color: var(--dark-border-light) !important;
+      }
+      
+      html.dark .shadow {
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 1px 1px rgba(0, 0, 0, 0.5) !important;
+      }
+      
+      html.dark .bg-gray-100 {
+        background-color: var(--dark-bg-secondary) !important;
+      }
+      
+      html.dark .hover\:bg-gray-100:hover {
+        background-color: var(--dark-bg-tertiary) !important;
+      }
+      
+      html.dark .hover\:bg-gray-50:hover {
+        background-color: var(--dark-bg-tertiary) !important;
+      }
+      
+      html.dark .hover\:bg-red-50:hover {
+        background-color: rgba(239, 68, 68, 0.15) !important;
+      }
+      
+      html.dark .hover\:bg-rose-50:hover {
+        background-color: rgba(244, 63, 94, 0.15) !important;
+      }
+      
+      html.dark .hover\:bg-amber-50:hover {
+        background-color: rgba(245, 158, 11, 0.15) !important;
+      }
+      
+      html.dark .bg-indigo-50 {
+        background-color: rgba(99, 102, 241, 0.15) !important;
+      }
+      
+      html.dark .text-indigo-700 {
+        color: #a5b4fc !important;
+      }
+      
+      html.dark .bg-rose-50 {
+        background-color: rgba(244, 63, 94, 0.15) !important;
+      }
+      
+      html.dark .text-rose-700 {
+        color: #fb7185 !important;
+      }
+      
+      html.dark .bg-amber-50 {
+        background-color: rgba(245, 158, 11, 0.15) !important;
+      }
+      
+      html.dark .text-amber-700 {
+        color: #fbbf24 !important;
+      }
+      
+      html.dark .bg-emerald-50 {
+        background-color: rgba(16, 185, 129, 0.12) !important;
+      }
+      
+      html.dark .text-emerald-700 {
+        color: #6ee7b7 !important;
+      }
+
+      /* Muted accent palette for dark */
+      html.dark .bg-indigo-600 {
+        background-color: #17184e !important;
+      }
+      
+      html.dark .hover\:bg-indigo-700:hover {
+        background-color: #2a2591 !important;
+      }
+      
+      html.dark .bg-fuchsia-600 {
+        background-color: #670a76 !important;
+      }
+      
+      html.dark .hover\:bg-fuchsia-700:hover {
+        background-color: #72217d !important;
+      }
+      
+      html.dark .bg-emerald-600 {
+        background-color: #10b981 !important;
+      }
+      
+      html.dark .hover\:bg-emerald-700:hover {
+        background-color: #059669 !important;
+      }
+      
+      html.dark .bg-amber-600 {
+        background-color: #f59e0b !important;
+      }
+      
+      html.dark .hover\:bg-amber-700:hover {
+        background-color: #d97706 !important;
+      }
+      
+      /* Gradient utilities adjustments */
+      html.dark .from-indigo-600 {
+        --tw-gradient-from: #1d2345 !important;
+        --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgb(99 102 241 / 0)) !important;
+      }
+      
+      html.dark .to-fuchsia-600 {
+        --tw-gradient-to: #57385c !important;
+      }
+
+      /* Special cases: light buttons rendered readable in dark */
+      html.dark .bg-white.text-amber-900 {
+        background-color: rgba(245, 158, 11, 0.15) !important;
+        color: #fbbf24 !important;
+      }
+      
+      html.dark .bg-white.text-gray-900 {
+        background-color: rgba(255, 255, 255, 0.12) !important;
+        color: var(--dark-text-primary) !important;
+      }
+
+      /* Inputs */
+      html.dark input[type="text"],
+      html.dark input[type="number"],
+      html.dark input[type="date"],
+      html.dark input[type="file"],
+      html.dark input[type="email"],
+      html.dark input[type="password"],
+      html.dark textarea,
+      html.dark select {
+        background-color: var(--dark-bg-secondary) !important;
+        color: var(--dark-text-primary) !important;
+        border-color: var(--dark-border) !important;
+      }
+      
+      html.dark ::placeholder {
+        color: var(--dark-text-muted) !important;
+        opacity: 0.8;
+      }
+
+      /* Link colors in dark mode */
+      html.dark a {
+        color: #93c5fd;
+      }
+      
+      html.dark a:hover {
+        color: #bfdbfe;
+      }
+
+      /* Scrollbar styling for dark mode */
+      html.dark ::-webkit-scrollbar {
+        width: 10px;
+      }
+      
+      html.dark ::-webkit-scrollbar-track {
+        background: var(--dark-bg-secondary);
+      }
+      
+      html.dark ::-webkit-scrollbar-thumb {
+        background: #4b5563;
+        border-radius: 5px;
+      }
+      
+      html.dark ::-webkit-scrollbar-thumb:hover {
+        background: #6b7280;
+      }
+
+      /* Receipt preview keeps white background but is readable in dark mode */
+      html.dark #receipt {
+        background: #fff;
+        color: #000;
+        padding: 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+
+      /* Table styles for dark mode */
+      html.dark table {
+        border-color: var(--dark-border);
+      }
+      
+      html.dark th, html.dark td {
+        border-color: var(--dark-border);
+        color: var(--dark-text-primary);
+      }
+      
+      html.dark thead th {
+        background-color: var(--dark-bg-secondary);
+      }
+      
+      html.dark tbody tr:hover {
+        background-color: var(--dark-bg-tertiary);
+      }
+
       /* Receipt 58mm print styles */
       @media print {
-        @page { size: 58mm auto; margin: 0; }
-        body { margin: 0; background: #fff; }
+        @page {
+          size: 58mm auto;
+          margin: 0;
+        }
+        
+        body {
+          margin: 0;
+          background: #fff;
+        }
+        
         /* Print only the receipt */
-        body * { visibility: hidden; }
-        #receipt, #receipt * { visibility: visible; }
-        #receipt { width: 58mm !important; border: none !important; box-shadow: none !important; position: absolute; left: 0; top: 0; }
-        #receipt * { font-size: 11px; line-height: 1.35; }
-        #receipt .title { font-size: 14px; font-weight: 700; }
+        body * {
+          visibility: hidden;
+        }
+        
+        #receipt, #receipt * {
+          visibility: visible;
+        }
+        
+        #receipt {
+          width: 58mm !important;
+          border: none !important;
+          box-shadow: none !important;
+          position: absolute;
+          left: 0;
+          top: 0;
+        }
+        
+        #receipt * {
+          font-size: 11px;
+          line-height: 1.35;
+        }
+        
+        #receipt .title {
+          font-size: 14px;
+          font-weight: 700;
+        }
       }
+      
       /* Screen preview of 58mm receipt */
-      #receipt { width: 58mm; background: #fff; }
+      #receipt {
+        width: 58mm;
+        background: #fff;
+        color: #000;
+      }
     </style>
   </head>
-  <body class="min-h-screen bg-gradient-to-b from-indigo-300 via-white to-fuchsia-300 text-gray-900">
+  <body class="min-h-screen bg-gradient-to-b from-indigo-600 via-white to-fuchsia-600 text-gray-900 dark:bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 dark:text-gray-100">
     <!-- App Loader Overlay -->
-    <div id="app-loader" class="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-indigo-600 to-fuchsia-600 text-white">
+    <div id="app-loader" class="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-indigo-600 to-fuchsia-600 dark:from-gray-900 dark:to-gray-800 text-white">
       <div class="flex flex-col items-center gap-3">
         <div class="w-10 h-10 rounded-full border-4 border-white/40 border-t-white animate-spin" aria-hidden="true"></div>
         <div class="text-sm opacity-90">Memuat Kasir Mini…</div>
@@ -40,26 +322,34 @@
 
     <div id="app">
       <!-- Header with tabs -->
-      <header class="no-print sticky top-0 z-10 bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white shadow">
+      <header class="no-print sticky top-0 z-10 bg-gradient-to-r from-indigo-600 to-fuchsia-600 dark:from-slate-900 dark:to-slate-800 text-white shadow">
         <div class="mx-auto max-w-3xl px-4 py-3">
           <div class="flex items-center justify-between">
-            <h1 class="font-semibold tracking-wide">{{ storeName }}</h1>
+            <div class="flex items-center gap-2">
+              <img :src="logoUrl || 'icons/ios/180.png'" alt="Logo Kasir Mini" class="w-6 h-6 rounded object-cover" width="24" height="24" />
+              <h1 class="font-semibold tracking-wide">{{ storeName }}</h1>
+            </div>
             <div class="text-xs opacity-90">by eliash.el</div>
           </div>
           <div class="mt-3 flex gap-2 items-center">
-            <button @click="activeTab='pos'" :class="activeTab==='pos' ? 'bg-white/90 text-gray-900' : 'bg-white/10 text-white hover:bg-white/20'" class="px-3 py-1 rounded flex items-center gap-2">
+            <button @click="activeTab='pos'" :class="activeTab==='pos' ? 'bg-white/90 text-gray-500' : 'bg-white/10 text-white hover:bg-white/20'" class="px-3 py-1 rounded flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l3-8H6.4M7 13l-1.293 2.293A1 1 0 007.618 17H19m-12 0a1 1 0 100 2 1 1 0 000-2zm12 0a1 1 0 110 2 1 1 0 010-2z"/></svg>
               <span class="hidden sm:inline">Kasir</span>
             </button>
-            <button @click="activeTab='history'" :class="activeTab==='history' ? 'bg-white/90 text-gray-900' : 'bg-white/10 text-white hover:bg-white/20'" class="px-3 py-1 rounded flex items-center gap-2">
+            <button @click="activeTab='history'" :class="activeTab==='history' ? 'bg-white/90 text-gray-500' : 'bg-white/10 text-white hover:bg-white/20'" class="px-3 py-1 rounded flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <span class="hidden sm:inline">Riwayat</span>
             </button>
-            <button @click="activeTab='products'" :class="activeTab==='products' ? 'bg-white/90 text-gray-900' : 'bg-white/10 text-white hover:bg-white/20'" class="px-3 py-1 rounded flex items-center gap-2">
+            <button @click="activeTab='products'" :class="activeTab==='products' ? 'bg-white/90 text-gray-500' : 'bg-white/10 text-white hover:bg-white/20'" class="px-3 py-1 rounded flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h3l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V5z"/></svg>
               <span class="hidden sm:inline">Produk</span>
             </button>
-            <button @click="showSettings=true" class="ml-auto px-3 py-1 rounded bg-white/10 text-white hover:bg-white/20 flex items-center gap-2" aria-label="Pengaturan">
+            <button @click="toggleDarkMode" class="ml-auto px-3 py-1 rounded bg-white/10 text-white hover:bg-white/20 flex items-center gap-2" aria-label="Toggle tema">
+              <span v-if="!useDark">🌙</span>
+              <span v-else>☀️</span>
+              <span class="hidden sm:inline">{{ useDark ? 'Terang' : 'Gelap' }}</span>
+            </button>
+            <button @click="showSettings=true" class="px-3 py-1 rounded bg-white/10 text-white hover:bg-white/20 flex items-center gap-2" aria-label="Pengaturan">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M11.983 1.574a1 1 0 00-1.966 0l-.117.586a1 1 0 01-.95.788l-.598.03a1 1 0 00-.905.62l-.232.561a1 1 0 01-.81.6l-.596.074a1 1 0 00-.827.727l-.157.587a1 1 0 01-.666.69l-.57.19a1 1 0 00-.62.905l.03.598a1 1 0 01-.788.95l-.586.117a1 1 0 000 1.966l.586.117a1 1 0 01.788.95l-.03.598a1 1 0 00.62.905l.57.19a1 1 0 01.666.69l.157.587a1 1 0 00.827.727l.596.074a1 1 0 01.81.6l.232.561a1 1 0 00.905.62l.598.03a1 1 0 01.95.788l.117.586a1 1 0 001.966 0l.117-.586a1 1 0 01.95-.788l.598-.03a1 1 0 00.905-.62l.232-.561a1 1 0 01.81-.6l.596-.074a1 1 0 00.827-.727l.157-.587a1 1 0 01.666-.69l.57-.19a1 1 0 00.62-.905l-.03-.598a1 1 0 01.788-.95l.586-.117a1 1 0 000-1.966l-.586-.117a1 1 0 01-.788-.95l.03-.598a1 1 0 00-.62-.905l-.57-.19a1 1 0 01-.666-.69l-.157-.587a1 1 0 00-.827-.727l-.596-.074a1 1 0 01-.81-.6l-.232-.561a1 1 0 00-.905-.62l-.598-.03a1 1 0 01-.95-.788l-.117-.586zM10 13a3 3 0 110-6 3 3 0 010 6z"/></svg>
               <span class="hidden sm:inline">Pengaturan</span>
             </button>
@@ -432,6 +722,7 @@
             </div>
             <div class="mt-3 flex justify-center">
               <div id="receipt" class="printable border rounded p-3 shadow-sm">
+                <img v-if="logoUrl" :src="logoUrl" alt="Logo" class="mx-auto mb-1" style="width:48px;height:48px;object-fit:contain;" />
                 <div class="text-center title">{{ storeName }}</div>
                 <div class="text-center text-xs">{{ storeAddress }}</div>
                 <div class="text-center text-xs">Telp: {{ storePhone }}</div>
@@ -488,6 +779,23 @@
             <div>
               <label class="text-sm text-gray-600">Judul/ Nama Toko</label>
               <input v-model="storeName" class="w-full border rounded px-3 py-2" placeholder="Kasir Mini" />
+            </div>
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" v-model="useDark" @change="toggleDarkMode" />
+              Mode gelap (dark mode)
+            </label>
+            <div>
+              <label class="text-sm text-gray-600">Logo Toko</label>
+              <div class="mt-1 flex items-center gap-3">
+                <img :src="logoUrl || 'icons/ios/180.png'" alt="Preview Logo" class="w-12 h-12 rounded border object-contain bg-white" />
+                <div class="flex flex-col gap-2">
+                  <input type="file" accept="image/*" @change="handleLogoFileChange" />
+                  <div class="text-xs text-gray-500">Disarankan PNG/QPNG, ±256×256. Tersimpan lokal.</div>
+                  <div class="flex gap-2">
+                    <button @click="clearLogo" class="px-2 py-1 rounded border text-sm">Hapus Logo</button>
+                  </div>
+                </div>
+              </div>
             </div>
             <div>
               <label class="text-sm text-gray-600">Alamat</label>
@@ -750,6 +1058,9 @@
           const storeName = ref('Kasir Mini');
           const storeAddress = ref('Jl. Contoh No. 123');
           const storePhone = ref('0800-000-000');
+          const logoDataUrl = ref('');
+          const logoUrl = computed(() => (logoDataUrl.value||'').trim());
+          const useDark = ref(false);
           const cash = ref(0);
           const change = computed(() => paymentMethod.value==='cash' ? Math.max(0, (Number(cash.value)||0) - total.value) : 0);
           const otherNote = ref('');
@@ -770,12 +1081,34 @@
           const testBusy = ref(false);
 
           const SETTINGS_KEY = 'kasirmini_settings_v1';
+          function applyTheme(){
+            try {
+              const dark = !!useDark.value;
+              document.documentElement.classList.toggle('dark', dark);
+              const meta = document.querySelector('meta[name="theme-color"]');
+              if (meta) meta.setAttribute('content', dark ? '#0b1220' : '#4f46e5');
+            } catch {}
+          }
+          function persistTheme(){
+            try { localStorage.setItem('kasirmini_theme', useDark.value ? 'dark' : 'light'); } catch {}
+          }
+          function toggleDarkMode(){ useDark.value = !useDark.value; persistTheme(); applyTheme(); saveSettings(); }
+          function initTheme(){
+            try {
+              const t = localStorage.getItem('kasirmini_theme');
+              if (t === 'dark' || t === 'light') useDark.value = (t === 'dark');
+              else if (window.matchMedia) useDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            } catch {}
+            applyTheme();
+          }
           function loadSettings(){
             try {
               const raw = localStorage.getItem(SETTINGS_KEY);
               if (!raw) return false;
               const s = JSON.parse(raw);
               if (s.storeName) storeName.value = s.storeName;
+              if (s.logoDataUrl) logoDataUrl.value = s.logoDataUrl;
+              if (s.theme === 'dark' || s.theme === 'light') { useDark.value = (s.theme==='dark'); }
               if (s.storeAddress) storeAddress.value = s.storeAddress;
               if (s.storePhone) storePhone.value = s.storePhone;
               if (s.qrisBase) qrisBase.value = s.qrisBase;
@@ -791,6 +1124,8 @@
           function saveSettings(){
             const s = {
               storeName: storeName.value,
+              logoDataUrl: logoDataUrl.value,
+              theme: useDark.value ? 'dark' : 'light',
               storeAddress: storeAddress.value,
               storePhone: storePhone.value,
               qrisBase: qrisBase.value,
@@ -806,6 +1141,8 @@
           function getSettingsObject(){
             return {
               storeName: storeName.value,
+              logoDataUrl: logoDataUrl.value,
+              theme: useDark.value ? 'dark' : 'light',
               storeAddress: storeAddress.value,
               storePhone: storePhone.value,
               qrisBase: qrisBase.value,
@@ -822,6 +1159,8 @@
           function applySettingsObject(obj){
             if (!obj || typeof obj !== 'object') return;
             if (obj.storeName !== undefined) storeName.value = obj.storeName;
+            if (obj.logoDataUrl !== undefined) logoDataUrl.value = obj.logoDataUrl;
+            if (obj.theme === 'dark' || obj.theme === 'light') { useDark.value = (obj.theme==='dark'); }
             if (obj.storeAddress !== undefined) storeAddress.value = obj.storeAddress;
             if (obj.storePhone !== undefined) storePhone.value = obj.storePhone;
             if (obj.qrisBase !== undefined) qrisBase.value = obj.qrisBase;
@@ -879,6 +1218,22 @@
             applySettingsObject(obj);
             showFirstRunImport.value = false;
           }
+
+          async function handleLogoFileChange(ev){
+            try{
+              const file = ev?.target?.files?.[0]; if (!file) return;
+              if (!file.type.startsWith('image/')) throw new Error('File bukan gambar');
+              const dataUrl = await new Promise((resolve, reject) => {
+                const fr = new FileReader();
+                fr.onload = () => resolve(String(fr.result||''));
+                fr.onerror = () => reject(fr.error||new Error('Gagal membaca file'));
+                fr.readAsDataURL(file);
+              });
+              logoDataUrl.value = dataUrl;
+            } catch(e){ alert('Gagal memuat logo: ' + (e?.message||'')); }
+            finally { try { ev.target.value = ''; } catch {} }
+          }
+          function clearLogo(){ logoDataUrl.value = ''; }
 
           function openImportSettingsPicker(){
             const input = document.createElement('input');
@@ -1654,9 +2009,11 @@
           }
 
       onMounted(async () => {
+        initTheme();
         await loadHistory();
         await loadProducts();
         const hadSettings = loadSettings();
+        try { applyTheme(); } catch {}
         if (!hadSettings) showFirstRunImport.value = true;
         // Register service worker for offline
         if ('serviceWorker' in navigator) {
@@ -1677,6 +2034,8 @@
             history, historyQuery, historyMethod, historyStatus, filterStart, filterEnd,
             lastReceipt, showReceiptModal,
             showSettings, showFirstRunImport, storeName, storeAddress, storePhone,
+            useDark,
+            logoDataUrl, logoUrl,
             products, newProduct, productQuery, filteredProducts,
             showScanner, scanError,
             showPayInvoice, payInvoiceTx, payMethod, payCash, payChange,
@@ -1685,6 +2044,7 @@
             backupStatus, backupStatusOk,
             testStatus, testOk, testBusy, testGsConnection,
             exportSettingsFileTxt, openImportSettingsPicker,
+            handleLogoFileChange, clearLogo,
 
             // computed
             hasPrintableReceipt, currentReceipt, filteredHistory, historySummary,
@@ -1699,6 +2059,7 @@
             openPayInvoice, closePayInvoice, confirmPayInvoice,
             loadSettings, saveSettings,
             shareReceiptWA,
+            toggleDarkMode,
             loadProducts, saveProduct, editProduct, deleteProduct,
             addProductToCart,
             exportProductsJSON, importProductsJSON,
